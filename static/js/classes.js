@@ -419,12 +419,23 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchClasses() {
         try {
             console.log('Fetching classes from API...');
-            const response = await fetch('/classes/api/list');
+            
+            // Add a timestamp to prevent caching issues
+            const response = await fetch(`/classes/api/list?t=${Date.now()}`);
             
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error(`HTTP error! status: ${response.status}, response: ${errorText}`);
-                throw new Error(`Server error: ${response.status} - ${errorText}`);
+                
+                // Check if we're redirected to login page (session expired)
+                if (errorText.includes('/auth/login') || response.status === 302) {
+                    state.error = 'Your session has expired. Please <a href="/auth/login">login again</a>';
+                    console.log('Session expired, redirecting to login page');
+                    window.location.href = '/auth/login';
+                    throw new Error('Session expired');
+                }
+                
+                throw new Error(`Server error: ${response.status} - ${errorText.substring(0, 100)}`);
             }
             
             const data = await response.json();
@@ -433,9 +444,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // Check if the response is an error object
             if (data.error) {
                 console.error('API returned error:', data.error);
+                state.error = data.error;
                 throw new Error(`API error: ${data.error}`);
             }
             
+            // Update state with the classes data
+            state.error = null; // Clear any previous errors
             state.classes = Array.isArray(data) ? data : [];
             return state.classes;
         } catch (error) {
@@ -444,6 +458,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Display error in console with more details
             if (error.message) {
                 console.error('Error message:', error.message);
+                // Set error state for UI display
+                if (!state.error) {
+                    state.error = error.message;
+                }
             }
             
             // Reset the state to empty array to prevent null errors
@@ -457,12 +475,22 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchStudents() {
         try {
             console.log('Fetching students from API...');
-            const response = await fetch('/students/api/list');
+            
+            // Add a timestamp to prevent caching issues
+            const response = await fetch(`/students/api/list?t=${Date.now()}`);
             
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error(`HTTP error! status: ${response.status}, response: ${errorText}`);
-                throw new Error(`Server error: ${response.status} - ${errorText}`);
+                
+                // Check if we're redirected to login page (session expired)
+                if (errorText.includes('/auth/login') || response.status === 302) {
+                    state.error = 'Your session has expired. Please <a href="/auth/login">login again</a>';
+                    console.log('Session expired, redirecting to login page');
+                    return [];
+                }
+                
+                throw new Error(`Server error: ${response.status} - ${errorText.substring(0, 100)}`);
             }
             
             const data = await response.json();
@@ -567,11 +595,27 @@ document.addEventListener('DOMContentLoaded', () => {
         
         elements.classesTableBody.innerHTML = '';
         
+        // If we're in an error state or have an empty array, show appropriate message
         if (state.classes.length === 0) {
             const row = document.createElement('tr');
-            row.innerHTML = `
-                <td colspan="6" class="text-center">No classes found</td>
-            `;
+            
+            // Check if we're in an error state
+            if (state.error) {
+                row.innerHTML = `
+                    <td colspan="7" class="text-center">
+                        <div class="alert alert-warning">
+                            Error loading classes: ${state.error}<br>
+                            <a href="/classes/schedule" class="alert-link">Refresh the page</a> to try again.
+                        </div>
+                    </td>
+                `;
+            } else {
+                // Just empty state
+                row.innerHTML = `
+                    <td colspan="7" class="text-center">No classes found</td>
+                `;
+            }
+            
             elements.classesTableBody.appendChild(row);
             return;
         }
