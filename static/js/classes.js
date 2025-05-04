@@ -29,6 +29,13 @@ document.addEventListener('DOMContentLoaded', () => {
         confirmYes: document.getElementById('confirm-yes'),
         confirmNo: document.getElementById('confirm-no')
     };
+    
+    // Log DOM elements to help debug
+    console.log('DOM Elements:', {
+        classesTableBody: elements.classesTableBody,
+        classesView: elements.classesView,
+        addClassBtn: elements.addClassBtn
+    });
 
     // Application state
     const state = {

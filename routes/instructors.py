@@ -56,6 +56,58 @@ def add():
     
     return redirect(url_for('instructors.manage'))
 
+@instructors_bp.route('/update/<int:instructor_id>', methods=['POST'])
+@login_required
+def update(instructor_id):
+    # Only allow admin to access
+    if current_user.role != 'admin':
+        flash('You do not have permission to perform this action.', 'danger')
+        return redirect(url_for('students.enroll'))
+        
+    instructor = User.query.get_or_404(instructor_id)
+    
+    # Don't allow editing admin account
+    if instructor.role == 'admin' and instructor.id != current_user.id:
+        flash('You cannot edit another administrator account.', 'danger')
+        return redirect(url_for('instructors.manage'))
+    
+    # Get form data
+    username = request.form.get('username')
+    email = request.form.get('email')
+    first_name = request.form.get('first_name')
+    last_name = request.form.get('last_name')
+    password = request.form.get('password')
+    
+    # Check if username is already taken
+    if username != instructor.username and User.query.filter_by(username=username).first():
+        flash('Username is already taken.', 'danger')
+        return redirect(url_for('instructors.manage'))
+    
+    # Check if email is already taken
+    if email != instructor.email and User.query.filter_by(email=email).first():
+        flash('Email is already taken.', 'danger')
+        return redirect(url_for('instructors.manage'))
+    
+    try:
+        # Update instructor details
+        instructor.username = username
+        instructor.email = email
+        instructor.first_name = first_name
+        instructor.last_name = last_name
+        
+        # Update password if provided
+        if password:
+            instructor.set_password(password)
+        
+        db.session.commit()
+        
+        flash(f'Instructor "{first_name} {last_name}" updated successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error updating instructor: {str(e)}', 'danger')
+    
+    return redirect(url_for('instructors.manage'))
+
 @instructors_bp.route('/delete/<int:instructor_id>', methods=['POST'])
 @login_required
 def delete(instructor_id):

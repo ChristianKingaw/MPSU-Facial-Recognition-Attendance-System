@@ -45,9 +45,15 @@
                                     <td>{{ instructor.created_at.strftime('%Y-%m-%d') }}</td>
                                     <td>{{ instructor.classes|length }}</td>
                                     <td>
+                                        <button class="btn action-btn btn-edit" 
+                                                onclick="openEditModal('{{ instructor.id }}', '{{ instructor.first_name }}', '{{ instructor.last_name }}', '{{ instructor.email }}', '{{ instructor.username }}')"
+                                                title="Edit Instructor">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
                                         <button class="btn action-btn btn-delete" 
                                                 onclick="confirmDelete('{{ instructor.id }}', '{{ instructor.first_name }} {{ instructor.last_name }}')"
-                                                {% if instructor.classes|length > 0 %}disabled{% endif %}>
+                                                {% if instructor.classes|length > 0 %}disabled{% endif %}
+                                                title="Delete Instructor">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </td>
@@ -118,6 +124,53 @@
     </div>
 </div>
 
+<!-- Edit Instructor Modal -->
+<div class="modal fade" id="editInstructorModal" tabindex="-1" aria-labelledby="editInstructorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editInstructorModalLabel">Edit Instructor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editInstructorForm" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" id="edit_instructor_id" name="instructor_id">
+                    <div class="mb-3">
+                        <label for="edit_username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="edit_username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="edit_email" name="email" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_first_name" class="form-label">First Name</label>
+                            <input type="text" class="form-control" id="edit_first_name" name="first_name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_last_name" class="form-label">Last Name</label>
+                            <input type="text" class="form-control" id="edit_last_name" name="last_name" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_password" class="form-label">New Password <small class="text-muted">(leave blank to keep current password)</small></label>
+                        <input type="password" class="form-control" id="edit_password" name="password">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_confirm_password" class="form-label">Confirm New Password</label>
+                        <input type="password" class="form-control" id="edit_confirm_password" name="confirm_password">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Confirmation Modal -->
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -143,6 +196,7 @@
 
 {% block extra_js %}
 <script>
+    // Handle Delete Confirmation
     function confirmDelete(instructorId, name) {
         document.getElementById('instructorName').textContent = name;
         document.getElementById('deleteForm').action = "{{ url_for('instructors.delete', instructor_id=0) }}".replace("0", instructorId);
@@ -151,5 +205,41 @@
         var modal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
         modal.show();
     }
+    
+    // Handle Edit Instructor Modal
+    function openEditModal(instructorId, firstName, lastName, email, username) {
+        // Set form action
+        document.getElementById('editInstructorForm').action = "{{ url_for('instructors.update', instructor_id=0) }}".replace("0", instructorId);
+        
+        // Populate form fields
+        document.getElementById('edit_instructor_id').value = instructorId;
+        document.getElementById('edit_username').value = username;
+        document.getElementById('edit_email').value = email;
+        document.getElementById('edit_first_name').value = firstName;
+        document.getElementById('edit_last_name').value = lastName;
+        
+        // Clear password fields
+        document.getElementById('edit_password').value = '';
+        document.getElementById('edit_confirm_password').value = '';
+        
+        // Show the edit modal
+        var modal = new bootstrap.Modal(document.getElementById('editInstructorModal'));
+        modal.show();
+    }
+    
+    // Password validation for edit form
+    document.getElementById('editInstructorForm').addEventListener('submit', function(e) {
+        const password = document.getElementById('edit_password').value;
+        const confirmPassword = document.getElementById('edit_confirm_password').value;
+        
+        // If password is provided, confirm it matches
+        if (password && password !== confirmPassword) {
+            e.preventDefault();
+            alert('Passwords do not match.');
+            return false;
+        }
+        
+        return true;
+    });
 </script>
 {% endblock %}
