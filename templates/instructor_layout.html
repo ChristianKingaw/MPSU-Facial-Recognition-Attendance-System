@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Class Pass{% endblock %}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='css/instructor.css') }}" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="sidebar-header">Class Pass</div>
+                <div class="sidebar-menu">
+                    <a href="{{ url_for('instructors.enroll_student') }}" class="menu-item {% if request.endpoint == 'instructors.enroll_student' %}active{% endif %}" id="enroll-students-link">Enroll Students</a>
+                    <a href="{{ url_for('instructors.class_schedule') }}" class="menu-item {% if request.endpoint == 'instructors.class_schedule' %}active{% endif %}" id="class-schedule-link">Class Schedule</a>
+                    <a href="{{ url_for('instructors.manage_attendance') }}" class="menu-item {% if request.endpoint == 'instructors.manage_attendance' %}active{% endif %}" id="manage-attendance-link">Manage Student Attendance</a>
+                </div>
+                <div class="user-section">
+                    <img src="{{ current_user.profile_picture|default('https://i.pravatar.cc/100') }}" alt="User" class="user-avatar">
+                    <div class="user-info">
+                        <p class="user-name">{{ current_user.first_name }} {{ current_user.last_name }}</p>
+                    </div>
+                </div>
+                <a href="{{ url_for('auth.logout') }}" class="logout-btn">Logout</a>
+            </div>
+            <div class="main-content">
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JavaScript -->
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

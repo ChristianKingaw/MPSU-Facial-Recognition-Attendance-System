@@ -4,8 +4,8 @@ import datetime
 from sqlalchemy.orm import joinedload
 
 from app import db
-from models import User, Class, Student, Enrollment
-from forms import RegisterForm
+from models import User, Class, Student, Enrollment, FaceEncoding, AttendanceRecord
+from forms import RegisterForm, StudentForm, EnrollmentForm
 
 instructors_bp = Blueprint('instructors', __name__, url_prefix='/instructors')
 
@@ -227,3 +227,246 @@ def delete(instructor_id):
         flash(f'Error deleting instructor: {str(e)}', 'danger')
     
     return redirect(url_for('instructors.manage'))
+
+# New instructor interface routes based on the provided design
+
+@instructors_bp.route('/enroll-student', methods=['GET'])
+@login_required
+def enroll_student():
+    # Only allow instructors
+    if current_user.role != 'instructor':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('auth.login'))
+    
+    form = StudentForm()
+    return render_template('instructors/enroll_student.html', form=form)
+
+@instructors_bp.route('/class-schedule', methods=['GET'])
+@login_required
+def class_schedule():
+    # Only allow instructors
+    if current_user.role != 'instructor':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('auth.login'))
+    
+    return render_template('instructors/class_schedule.html')
+
+@instructors_bp.route('/manage-attendance', methods=['GET'])
+@login_required
+def manage_attendance():
+    # Only allow instructors
+    if current_user.role != 'instructor':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('auth.login'))
+    
+    # Get all classes taught by this instructor
+    classes = Class.query.filter_by(instructor_id=current_user.id).all()
+    return render_template('instructors/manage_attendance.html', classes=classes)
+
+@instructors_bp.route('/api/class-attendance-overview', methods=['GET'])
+@login_required
+def get_class_attendance_overview():
+    # Only for instructors
+    if current_user.role != 'instructor':
+        return jsonify([])
+    
+    # Get current date
+    today = datetime.datetime.now().date()
+    
+    # Get all classes assigned to the current instructor
+    classes = Class.query.filter_by(instructor_id=current_user.id).all()
+    
+    class_list = []
+    for class_obj in classes:
+        # Count enrolled students
+        enrollments = Enrollment.query.filter_by(class_id=class_obj.id).all()
+        enrolled_count = len(enrollments)
+        
+        # Count present students today
+        present_count = 0
+        for enrollment in enrollments:
+            attendance = AttendanceRecord.query.filter_by(
+                class_id=class_obj.id,
+                student_id=enrollment.student_id,
+                date=today,
+                status='Present'
+            ).first()
+            
+            if attendance:
+                present_count += 1
+        
+        class_list.append({
+            'id': class_obj.id,
+            'classCode': class_obj.class_code,
+            'description': class_obj.description,
+            'schedule': class_obj.schedule,
+            'roomNumber': class_obj.room_number,
+            'enrolledCount': enrolled_count,
+            'presentCount': present_count,
+            'date': today.strftime('%B %d %Y')
+        })
+    
+    return jsonify(class_list)
+
+@instructors_bp.route('/api/class-students/<int:class_id>', methods=['GET'])
+@login_required
+def get_class_students(class_id):
+    # Only allow instructors
+    if current_user.role != 'instructor':
+        return jsonify({'success': False, 'message': 'Unauthorized'})
+    
+    # Check if class exists and belongs to this instructor
+    class_obj = Class.query.filter_by(id=class_id, instructor_id=current_user.id).first()
+    if not class_obj:
+        return jsonify({'success': False, 'message': 'Class not found or not authorized'})
+    
+    # Get all students in this class
+    enrollments = Enrollment.query.filter_by(class_id=class_id).all()
+    
+    student_list = []
+    for enrollment in enrollments:
+        student = Student.query.get(enrollment.student_id)
+        if student:
+            # Determine attendance status for today
+            today = datetime.datetime.now().date()
+            attendance = AttendanceRecord.query.filter_by(
+                class_id=class_id,
+                student_id=student.id,
+                date=today
+            ).first()
+            
+            status = attendance.status if attendance else 'Present'  # Default to Present
+            
+            student_list.append({
+                'id': student.id,
+                'name': f"{student.first_name} {student.last_name}",
+                'yearLevel': student.year_level,
+                'phone': student.phone,
+                'email': student.email or '',
+                'status': status
+            })
+    
+    return jsonify(student_list)
+
+@instructors_bp.route('/api/student-attendance/<string:student_id>/<int:class_id>', methods=['GET'])
+@login_required
+def get_student_attendance(student_id, class_id):
+    # Only allow instructors
+    if current_user.role != 'instructor':
+        return jsonify({'success': False, 'message': 'Unauthorized'})
+    
+    # Check if class exists and belongs to this instructor
+    class_obj = Class.query.filter_by(id=class_id, instructor_id=current_user.id).first()
+    if not class_obj:
+        return jsonify({'success': False, 'message': 'Class not found or not authorized'})
+    
+    # Check if student is enrolled in this class
+    enrollment = Enrollment.query.filter_by(class_id=class_id, student_id=student_id).first()
+    if not enrollment:
+        return jsonify({'success': False, 'message': 'Student not enrolled in this class'})
+    
+    # Get student details
+    student = Student.query.get(student_id)
+    if not student:
+        return jsonify({'success': False, 'message': 'Student not found'})
+    
+    # Get attendance records for current month
+    today = datetime.datetime.now()
+    current_month = today.month
+    current_year = today.year
+    
+    # Get all attendance records for this student in this class
+    attendance_records = AttendanceRecord.query.filter(
+        AttendanceRecord.class_id == class_id,
+        AttendanceRecord.student_id == student_id,
+        db.extract('month', AttendanceRecord.date) == current_month,
+        db.extract('year', AttendanceRecord.date) == current_year
+    ).all()
+    
+    # Format attendance data
+    attendance_data = {record.date.strftime('%B %d %Y'): record.status for record in attendance_records}
+    
+    # Count present and absent days
+    present_count = sum(1 for record in attendance_records if record.status == 'Present')
+    absent_count = sum(1 for record in attendance_records if record.status == 'Absent')
+    
+    return jsonify({
+        'student': {
+            'id': student.id,
+            'name': f"{student.first_name} {student.last_name}",
+            'yearLevel': student.year_level
+        },
+        'class': {
+            'id': class_obj.id,
+            'code': class_obj.class_code,
+            'description': class_obj.description
+        },
+        'attendance': {
+            'month': today.strftime('%B'),
+            'year': today.year,
+            'presentCount': present_count,
+            'absentCount': absent_count,
+            'records': attendance_data
+        }
+    })
+
+@instructors_bp.route('/api/update-attendance', methods=['POST'])
+@login_required
+def update_attendance():
+    # Only allow instructors
+    if current_user.role != 'instructor':
+        return jsonify({'success': False, 'message': 'Unauthorized'})
+    
+    data = request.get_json()
+    if not data or not all(key in data for key in ['classId', 'studentId', 'date', 'status']):
+        return jsonify({'success': False, 'message': 'Missing required data'})
+    
+    # Check if class exists and belongs to this instructor
+    class_obj = Class.query.filter_by(id=data['classId'], instructor_id=current_user.id).first()
+    if not class_obj:
+        return jsonify({'success': False, 'message': 'Class not found or not authorized'})
+    
+    # Parse date
+    try:
+        attendance_date = datetime.datetime.strptime(data['date'], '%B %d %Y').date()
+    except ValueError:
+        try:
+            attendance_date = datetime.datetime.strptime(data['date'], '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'success': False, 'message': 'Invalid date format'})
+    
+    # Check if student is enrolled in this class
+    enrollment = Enrollment.query.filter_by(class_id=data['classId'], student_id=data['studentId']).first()
+    if not enrollment:
+        return jsonify({'success': False, 'message': 'Student not enrolled in this class'})
+    
+    # Find existing attendance record or create new one
+    attendance = AttendanceRecord.query.filter_by(
+        class_id=data['classId'],
+        student_id=data['studentId'],
+        date=attendance_date
+    ).first()
+    
+    if attendance:
+        # Update existing record
+        attendance.status = data['status']
+        attendance.marked_by = current_user.id
+        attendance.marked_at = datetime.datetime.utcnow()
+    else:
+        # Create new record
+        attendance = AttendanceRecord(
+            class_id=data['classId'],
+            student_id=data['studentId'],
+            date=attendance_date,
+            status=data['status'],
+            marked_by=current_user.id,
+            marked_at=datetime.datetime.utcnow()
+        )
+        db.session.add(attendance)
+    
+    try:
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'Attendance updated to {data["status"]}'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)})
