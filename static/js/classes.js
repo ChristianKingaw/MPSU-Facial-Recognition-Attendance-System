@@ -478,6 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
             row.dataset.classId = classData.id;
             
             row.innerHTML = `
+                <td>${classData.class_code || classData.classCode}</td>
                 <td>${classData.description}</td>
                 <td>${classData.roomNumber}</td>
                 <td>${classData.schedule}</td>
@@ -597,13 +598,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const classData = state.classes.find(c => c.id === classId);
         if (!classData) return;
         
-        // Set hidden form fields
-        document.getElementById('classCode').value = classData.classCode;
+        // Set form fields
+        document.getElementById('classCode').value = classData.class_code || classData.classCode; // Handle different property names
         document.getElementById('description').value = classData.description;
         document.getElementById('roomNumber').value = classData.roomNumber;
         document.getElementById('schedule').value = classData.schedule;
         document.getElementById('instructorId').value = classData.instructorId;
         document.getElementById('classId').value = classData.id;
+        
+        // Set editing state flag to true
+        state.isEditingClass = true;
         
         // Set up schedule builder with existing schedule
         if (window.setupScheduleBuilder && typeof window.setupScheduleBuilder === 'function') {
@@ -621,7 +625,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 try {
                     const courseData = JSON.parse(option.value);
-                    if (courseData.code === classData.classCode) {
+                    // Extract the base course code from the class code
+                    const classCode = classData.class_code || classData.classCode;
+                    // If class code is something like "ITP321-A", we just need "ITP321" 
+                    const baseCourseCode = classCode.split('-')[0];
+                    
+                    if (courseData.code === baseCourseCode) {
                         courseSelect.selectedIndex = i;
                         found = true;
                         break;
