@@ -27,6 +27,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
+            // Validate time range
+            if (startTime >= endTime) {
+                alert('End time must be after start time');
+                return;
+            }
+            
             // Generate a unique ID for this slot
             const slotId = 'slot_' + new Date().getTime();
             
@@ -41,9 +47,13 @@ document.addEventListener('DOMContentLoaded', function() {
             // Add the time slot to the schedule
             if (typeof addTimeSlot === 'function') {
                 addTimeSlot(slot);
+                // Show success notification
+                showNotification('Time slot added successfully!');
             } else {
                 // Fallback if the main function isn't available
                 addTimeSlotFallback(slot);
+                // Show success notification
+                showNotification('Time slot added successfully!');
             }
             
             // Reset inputs
@@ -195,4 +205,67 @@ function formatTime(timeString) {
     const displayHour = hour % 12 === 0 ? 12 : hour % 12;
     
     return `${displayHour}:${minutes} ${suffix}`;
+}
+
+/**
+ * Show a notification message that fades out
+ * @param {string} message - The message to display
+ * @param {string} type - The notification type ('success', 'error', 'info')
+ */
+function showNotification(message, type = 'success') {
+    // Check if notification container exists, if not create it
+    let notificationContainer = document.getElementById('notification-container');
+    
+    if (!notificationContainer) {
+        // Create notification container
+        notificationContainer = document.createElement('div');
+        notificationContainer.id = 'notification-container';
+        notificationContainer.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        `;
+        document.body.appendChild(notificationContainer);
+    }
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    
+    // Add styles to the notification
+    notification.style.cssText = `
+        background-color: ${type === 'success' ? '#17ce9a' : type === 'error' ? '#dc3545' : '#17a2b8'};
+        color: white;
+        padding: 12px 20px;
+        margin-bottom: 10px;
+        border-radius: 4px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        opacity: 0;
+        transition: opacity 0.3s ease-in-out;
+    `;
+    
+    // Add notification to container
+    notificationContainer.appendChild(notification);
+    
+    // Fade in the notification
+    setTimeout(() => {
+        notification.style.opacity = '1';
+    }, 10);
+    
+    // Remove notification after 3 seconds
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        
+        // Remove element after fade out
+        setTimeout(() => {
+            notificationContainer.removeChild(notification);
+            
+            // Remove container if empty
+            if (notificationContainer.children.length === 0) {
+                document.body.removeChild(notificationContainer);
+            }
+        }, 300);
+    }, 3000);
 }

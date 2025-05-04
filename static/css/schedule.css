@@ -284,18 +284,46 @@
     margin-top: 10px;
 }
 
+.day-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
 .day-btn {
     margin-right: 4px;
     margin-bottom: 4px;
     padding: 6px 12px;
     border-radius: 4px;
     cursor: pointer;
+    display: inline-block;
+    background-color: #f8f9fa;
+    border: 1px solid #ced4da;
+    color: #495057;
+    transition: all 0.2s;
+    text-align: center;
 }
 
 .day-btn.active {
     background-color: #17ce9a;
     color: white;
     border-color: #17ce9a;
+}
+
+.day-btn:hover {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+}
+
+.day-btn.active:hover {
+    background-color: #15b889;
+    border-color: #15b889;
+}
+
+/* Hide checkboxes but keep them in the DOM for functionality */
+.day-btn input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
 }
 
 .schedule-display {
