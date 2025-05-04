@@ -30,7 +30,7 @@ def login():
         if current_user.role == 'admin':
             return redirect(url_for('students.enroll'))
         elif current_user.role == 'instructor':
-            return redirect(url_for('instructors.dashboard'))
+            return redirect(url_for('instructors.class_schedule'))
     
     form = LoginForm()
     
