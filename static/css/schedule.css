@@ -290,40 +290,58 @@
     gap: 5px;
 }
 
-.day-btn {
-    margin-right: 4px;
-    margin-bottom: 4px;
-    padding: 6px 12px;
-    border-radius: 4px;
-    cursor: pointer;
+.checkbox-btn {
+    position: relative;
+    margin-right: 5px;
+    margin-bottom: 5px;
     display: inline-block;
-    background-color: #f8f9fa;
-    border: 1px solid #ced4da;
-    color: #495057;
-    transition: all 0.2s;
-    text-align: center;
+    cursor: pointer;
 }
 
-.day-btn.active {
-    background-color: #17ce9a;
-    color: white;
-    border-color: #17ce9a;
-}
-
-.day-btn:hover {
-    background-color: #e9ecef;
-    border-color: #ced4da;
-}
-
-.day-btn.active:hover {
-    background-color: #15b889;
-    border-color: #15b889;
-}
-
-/* Hide checkboxes but keep them in the DOM for functionality */
-.day-btn input[type="checkbox"] {
+.day-checkbox {
     position: absolute;
     opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.day-label {
+    display: inline-block;
+    padding: 8px 16px;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    color: #495057;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.day-checkbox:checked + .day-label {
+    background-color: #17ce9a;
+    border-color: #17ce9a;
+    color: white;
+}
+
+.day-checkbox:focus + .day-label {
+    box-shadow: 0 0 0 0.2rem rgba(23, 206, 154, 0.25);
+}
+
+.check-icon {
+    margin-right: 5px;
+    display: none;
+}
+
+.day-checkbox:checked + .day-label .check-icon {
+    display: inline-block;
+}
+
+.day-label:hover {
+    background-color: #f8f9fa;
+}
+
+.day-checkbox:checked + .day-label:hover {
+    background-color: #15b889;
 }
 
 .schedule-display {

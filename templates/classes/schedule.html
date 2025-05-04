@@ -189,41 +189,58 @@
                                     <button type="button" class="btn btn-sm btn-outline-secondary" id="resetDaysBtn">Reset Days</button>
                                 </div>
                                 <div class="day-buttons">
-                                    <div class="day-btn" data-day="M" onclick="this.classList.toggle('active')">
-                                        <input type="checkbox" autocomplete="off"> Mon
-                                    </div>
-                                    <div class="day-btn" data-day="T" onclick="this.classList.toggle('active')">
-                                        <input type="checkbox" autocomplete="off"> Tue
-                                    </div>
-                                    <div class="day-btn" data-day="W" onclick="this.classList.toggle('active')">
-                                        <input type="checkbox" autocomplete="off"> Wed
-                                    </div>
-                                    <div class="day-btn" data-day="Th" onclick="this.classList.toggle('active')">
-                                        <input type="checkbox" autocomplete="off"> Thu
-                                    </div>
-                                    <div class="day-btn" data-day="F" onclick="this.classList.toggle('active')">
-                                        <input type="checkbox" autocomplete="off"> Fri
-                                    </div>
-                                    <div class="day-btn" data-day="S" onclick="this.classList.toggle('active')">
-                                        <input type="checkbox" autocomplete="off"> Sat
-                                    </div>
+                                    <label class="checkbox-btn">
+                                        <input type="checkbox" data-day="M" class="day-checkbox">
+                                        <span class="day-label">
+                                            <i class="fas fa-check check-icon"></i> Mon
+                                        </span>
+                                    </label>
+                                    <label class="checkbox-btn">
+                                        <input type="checkbox" data-day="T" class="day-checkbox">
+                                        <span class="day-label">
+                                            <i class="fas fa-check check-icon"></i> Tue
+                                        </span>
+                                    </label>
+                                    <label class="checkbox-btn">
+                                        <input type="checkbox" data-day="W" class="day-checkbox">
+                                        <span class="day-label">
+                                            <i class="fas fa-check check-icon"></i> Wed
+                                        </span>
+                                    </label>
+                                    <label class="checkbox-btn">
+                                        <input type="checkbox" data-day="Th" class="day-checkbox">
+                                        <span class="day-label">
+                                            <i class="fas fa-check check-icon"></i> Thu
+                                        </span>
+                                    </label>
+                                    <label class="checkbox-btn">
+                                        <input type="checkbox" data-day="F" class="day-checkbox">
+                                        <span class="day-label">
+                                            <i class="fas fa-check check-icon"></i> Fri
+                                        </span>
+                                    </label>
+                                    <label class="checkbox-btn">
+                                        <input type="checkbox" data-day="S" class="day-checkbox">
+                                        <span class="day-label">
+                                            <i class="fas fa-check check-icon"></i> Sat
+                                        </span>
+                                    </label>
                                 </div>
                             </div>
                             
                             <!-- Time Selection -->
                             <div class="time-selection mb-3">
-                                <div class="row">
-                                    <div class="col-md-5">
+                                <div style="display: flex; align-items: flex-end; gap: 10px; margin-bottom: 10px;">
+                                    <div style="flex: 1;">
                                         <label for="startTime">Start Time:</label>
-                                        <input type="time" class="form-control" id="startTime">
+                                        <input type="time" class="form-control" id="startTime" value="10:00" required>
                                     </div>
-                                    <div class="col-md-5">
+                                    <div style="flex: 1;">
                                         <label for="endTime">End Time:</label>
-                                        <input type="time" class="form-control" id="endTime">
+                                        <input type="time" class="form-control" id="endTime" value="12:00" required>
                                     </div>
-                                    <div class="col-md-2">
-                                        <label>&nbsp;</label>
-                                        <button type="button" class="btn btn-primary btn-sm form-control" id="addTimeBtn">Add</button>
+                                    <div style="width: 70px;">
+                                        <button type="button" id="addTimeBtn" style="background-color: #f8f9fa; border: 1px solid #ced4da; padding: 8px 10px; border-radius: 4px; cursor: pointer;">Add</button>
                                     </div>
                                 </div>
                             </div>
@@ -247,7 +264,7 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <button type="submit" class="btn-save">Save Class</button>
+                    <button type="submit" class="btn-save" style="background-color: #17ce9a; color: white; border: none; padding: 12px; width: 100%; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 15px;">Save Class</button>
                 </form>
             </div>
         </div>

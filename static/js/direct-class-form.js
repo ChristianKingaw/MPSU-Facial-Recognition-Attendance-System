@@ -79,9 +79,9 @@ document.addEventListener('DOMContentLoaded', function() {
  */
 function getSelectedDays() {
     const selectedDays = [];
-    const dayButtons = document.querySelectorAll('.day-btn.active');
-    dayButtons.forEach(button => {
-        selectedDays.push(button.dataset.day);
+    const dayCheckboxes = document.querySelectorAll('.day-checkbox:checked');
+    dayCheckboxes.forEach(checkbox => {
+        selectedDays.push(checkbox.getAttribute('data-day'));
     });
     return selectedDays;
 }
@@ -90,23 +90,20 @@ function getSelectedDays() {
  * Reset the selected days
  */
 function resetSelectedDays() {
-    const dayButtons = document.querySelectorAll('.day-btn');
-    dayButtons.forEach(button => {
-        button.classList.remove('active');
+    const dayCheckboxes = document.querySelectorAll('.day-checkbox');
+    dayCheckboxes.forEach(checkbox => {
+        checkbox.checked = false;
     });
 }
 
 /**
- * Set up day button handlers if the main toggle function isn't available
+ * Set up day button handlers
  */
 function setupDayButtonHandlers() {
-    if (typeof toggleDay !== 'function') {
-        const dayButtons = document.querySelectorAll('.day-btn');
-        dayButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                this.classList.toggle('active');
-            });
-        });
+    // Initialize the reset days button
+    const resetDaysBtn = document.getElementById('resetDaysBtn');
+    if (resetDaysBtn) {
+        resetDaysBtn.addEventListener('click', resetSelectedDays);
     }
 }
 
