@@ -234,6 +234,10 @@ def enroll_student(class_id):
 @classes_bp.route('/api/<int:class_id>/unenroll/<string:student_id>', methods=['DELETE'])
 @login_required
 def unenroll_student(class_id, student_id):
+    # Restrict access to instructors only
+    if current_user.role != 'instructor':
+        return jsonify({'success': False, 'message': 'Only instructors can unenroll students'}), 403
+    
     # Find the enrollment
     enrollment = Enrollment.query.filter_by(
         class_id=class_id, 
