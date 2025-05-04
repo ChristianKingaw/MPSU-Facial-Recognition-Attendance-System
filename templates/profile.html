@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <h2 class="header-title mb-4">My Profile</h2>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Profile Picture</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="profile-picture-container mb-3">
+                        {% if current_user.profile_picture %}
+                            <img src="{{ url_for('static', filename='uploads/' + current_user.profile_picture) }}" alt="{{ current_user.first_name }}" class="profile-picture">
+                        {% else %}
+                            <img src="{{ url_for('static', filename='img/default-avatar.png') }}" alt="Default" class="profile-picture">
+                        {% endif %}
+                    </div>
+                    
+                    <form method="POST" action="{{ url_for('auth.update_profile_picture') }}" enctype="multipart/form-data">
+                        {{ picture_form.hidden_tag() }}
+                        <div class="mb-3">
+                            <label for="profile_picture" class="form-label">Choose New Picture</label>
+                            {{ picture_form.profile_picture(class="form-control") }}
+                            {% if picture_form.profile_picture.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in picture_form.profile_picture.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        {{ picture_form.submit(class="btn btn-primary") }}
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Personal Information</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('auth.update_profile') }}">
+                        {{ profile_form.hidden_tag() }}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="first_name" class="form-label">First Name</label>
+                                {{ profile_form.first_name(class="form-control", placeholder="Enter your first name") }}
+                                {% if profile_form.first_name.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in profile_form.first_name.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="last_name" class="form-label">Last Name</label>
+                                {{ profile_form.last_name(class="form-control", placeholder="Enter your last name") }}
+                                {% if profile_form.last_name.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in profile_form.last_name.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            {{ profile_form.email(class="form-control", placeholder="Enter your email") }}
+                            {% if profile_form.email.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in profile_form.email.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <h5 class="mt-4 mb-3">Change Password</h5>
+                        <div class="mb-3">
+                            <label for="current_password" class="form-label">Current Password</label>
+                            {{ profile_form.current_password(class="form-control", placeholder="Enter your current password") }}
+                            {% if profile_form.current_password.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in profile_form.current_password.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="new_password" class="form-label">New Password</label>
+                                {{ profile_form.new_password(class="form-control", placeholder="Enter new password") }}
+                                {% if profile_form.new_password.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in profile_form.new_password.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="confirm_password" class="form-label">Confirm New Password</label>
+                                {{ profile_form.confirm_password(class="form-control", placeholder="Confirm new password") }}
+                                {% if profile_form.confirm_password.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in profile_form.confirm_password.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <p class="text-muted small">Leave password fields empty if you don't want to change your password.</p>
+                        
+                        {{ profile_form.submit(class="btn btn-primary") }}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-picture-container {
+        width: 150px;
+        height: 150px;
+        margin: 0 auto;
+        border-radius: 50%;
+        overflow: hidden;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    
+    .profile-picture {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+</style>
+{% endblock %}

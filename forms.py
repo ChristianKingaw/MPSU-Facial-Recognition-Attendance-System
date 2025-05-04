@@ -1,7 +1,9 @@
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, PasswordField, SubmitField, SelectField, HiddenField
-from wtforms.validators import DataRequired, Email, Length, ValidationError, EqualTo, Regexp
+from wtforms.validators import DataRequired, Email, Length, ValidationError, EqualTo, Regexp, Optional
 from models import Student, User, Class
+from flask_login import current_user
 
 # Login Form
 class LoginForm(FlaskForm):
@@ -130,3 +132,42 @@ class AttendanceForm(FlaskForm):
         ('Late', 'Late')
     ], validators=[DataRequired()])
     submit = SubmitField('Save')
+
+# Profile Update Form
+class ProfileUpdateForm(FlaskForm):
+    first_name = StringField('First Name', validators=[
+        DataRequired(),
+        Length(max=64)
+    ])
+    last_name = StringField('Last Name', validators=[
+        DataRequired(),
+        Length(max=64)
+    ])
+    email = StringField('Email', validators=[
+        DataRequired(),
+        Email(),
+        Length(max=120)
+    ])
+    current_password = PasswordField('Current Password', validators=[Optional()])
+    new_password = PasswordField('New Password', validators=[
+        Optional(),
+        Length(min=8, max=128)
+    ])
+    confirm_password = PasswordField('Confirm New Password', validators=[
+        Optional(),
+        EqualTo('new_password', message='Passwords must match')
+    ])
+    submit = SubmitField('Update Profile')
+    
+    def validate_email(self, email):
+        if email.data != current_user.email:
+            user = User.query.filter_by(email=email.data).first()
+            if user:
+                raise ValidationError('Email address already taken.')
+
+# Profile Picture Update Form
+class ProfilePictureForm(FlaskForm):
+    profile_picture = FileField('Upload Picture', validators=[
+        FileAllowed(['jpg', 'jpeg', 'png'], 'Images only (JPG, JPEG, PNG)')
+    ])
+    submit = SubmitField('Update Picture')
