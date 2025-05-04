@@ -25,9 +25,6 @@
                     ClassPass
                 </div>
                 <div class="sidebar-menu">
-                    <a href="{{ url_for('instructors.dashboard') }}" class="menu-item {% if request.path == url_for('instructors.dashboard') %}active{% endif %}">
-                        <i class="fas fa-th-large me-2"></i> Dashboard
-                    </a>
                     <a href="{{ url_for('instructors.class_schedule') }}" class="menu-item {% if request.path == url_for('instructors.class_schedule') %}active{% endif %}">
                         <i class="fas fa-calendar-alt me-2"></i> Class Schedule
                     </a>
@@ -36,6 +33,9 @@
                     </a>
                     <a href="{{ url_for('instructors.manage_attendance') }}" class="menu-item {% if request.path == url_for('instructors.manage_attendance') %}active{% endif %}">
                         <i class="fas fa-clipboard-check me-2"></i> Manage Attendance
+                    </a>
+                    <a href="{{ url_for('auth.profile') }}" class="menu-item {% if request.path == url_for('auth.profile') %}active{% endif %}">
+                        <i class="fas fa-user-cog me-2"></i> My Profile
                     </a>
                 </div>
                 <div class="user-section">
