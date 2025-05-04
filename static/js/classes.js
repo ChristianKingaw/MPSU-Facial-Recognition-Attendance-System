@@ -803,10 +803,14 @@ function unenrollStudent(studentId, enrollmentId) {
         return;
     }
     
-    console.log(`Unenrolling student ${studentId} from class ${selectedClassId}`);
+    console.log(`Unenrolling student ${studentId} from class ${selectedClassId} with enrollment ID ${enrollmentId}`);
     
+    // Using the endpoint that takes an enrollment ID
     fetch(`/classes/api/${selectedClassId}/unenroll/${enrollmentId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+            'Accept': 'application/json'
+        }
     })
     .then(response => {
         if (!response.ok) {
