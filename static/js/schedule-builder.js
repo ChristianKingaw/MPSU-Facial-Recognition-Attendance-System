@@ -130,15 +130,15 @@ document.addEventListener('DOMContentLoaded', function() {
         addTimeBtn.removeEventListener('click', addTimeSlot);
         // Add fresh event listener
         addTimeBtn.addEventListener('click', addTimeSlot);
-        // For debugging purposes
-        addTimeBtn.onclick = function(e) {
-            console.log('Add time button clicked via onclick property');
-            e.preventDefault();
-            addTimeSlot();
-        };
     } else {
         console.error('Add time button not found in the DOM');
     }
+    
+    // Listen for the custom event as a backup method
+    document.addEventListener('addTimeSlot', function(e) {
+        console.log('Custom addTimeSlot event received');
+        addTimeSlot();
+    });
     
     // Add a time slot
     function addTimeSlot() {
@@ -195,8 +195,30 @@ document.addEventListener('DOMContentLoaded', function() {
         endTimeInput.value = '';
         
         // Force set the value directly too, as a failsafe
-        document.getElementById('schedule').value = scheduleItems.map(item => item.display).join(', ');
-        console.log('Schedule input value set directly:', document.getElementById('schedule').value);
+        const scheduleInput = document.getElementById('schedule');
+        if (scheduleInput) {
+            scheduleInput.value = scheduleItems.map(item => item.display).join(', ');
+            console.log('Schedule input value set directly:', scheduleInput.value);
+            
+            // Force a change event on the input
+            const changeEvent = new Event('change', { bubbles: true });
+            scheduleInput.dispatchEvent(changeEvent);
+            
+            // Also set as a form data attribute for extra safety
+            scheduleInput.setAttribute('data-schedule-set', 'true');
+            
+            // Force form validation to recognize the change
+            scheduleInput.classList.add('is-valid');
+            scheduleInput.classList.remove('is-invalid');
+            
+            // Force update any validation messages
+            const form = scheduleInput.closest('form');
+            if (form) {
+                form.setAttribute('data-has-schedule', 'true');
+            }
+        } else {
+            console.error('Schedule input element not found!');
+        }
     }
     
     // Update the schedule display

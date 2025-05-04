@@ -723,6 +723,53 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Schedule input value:', scheduleValue);
         
         if (!scheduleValue) {
+            // Try to manually get the schedule from the schedule builder
+            try {
+                const scheduleDisplay = document.getElementById('scheduleDisplay');
+                if (scheduleDisplay && scheduleDisplay.textContent !== 'No schedule set' && 
+                    !scheduleDisplay.querySelector('.text-muted')) {
+                    
+                    // Get all schedule tags
+                    const scheduleTags = scheduleDisplay.querySelectorAll('.schedule-tag');
+                    if (scheduleTags.length > 0) {
+                        // Extract text content from each tag (excluding the "×" button)
+                        const scheduleTexts = Array.from(scheduleTags).map(tag => {
+                            const clone = tag.cloneNode(true);
+                            // Remove the remove button
+                            const removeBtn = clone.querySelector('.remove-schedule');
+                            if (removeBtn) {
+                                removeBtn.remove();
+                            }
+                            return clone.textContent.trim();
+                        });
+                        
+                        // Join the schedules
+                        const recoveredSchedule = scheduleTexts.join(', ');
+                        console.log('Recovered schedule from display:', recoveredSchedule);
+                        
+                        // Set it manually on the input
+                        scheduleInput.value = recoveredSchedule;
+                        
+                        // Use the recovered value
+                        formData.set('schedule', recoveredSchedule);
+                    } else {
+                        alert('Please add at least one schedule time slot before saving.');
+                        return;
+                    }
+                } else {
+                    alert('Please add at least one schedule time slot before saving.');
+                    return;
+                }
+            } catch (error) {
+                console.error('Error recovering schedule:', error);
+                alert('Please add at least one schedule time slot before saving.');
+                return;
+            }
+        }
+        
+        // Re-get the schedule after recovery attempt
+        const finalScheduleValue = scheduleInput ? scheduleInput.value : '';
+        if (!finalScheduleValue) {
             alert('Please add at least one schedule time slot before saving.');
             return;
         }
@@ -731,7 +778,7 @@ document.addEventListener('DOMContentLoaded', () => {
             classCode: formData.get('classCode'),
             description: formData.get('description'),
             roomNumber: formData.get('roomNumber'),
-            schedule: scheduleValue, // Always use the direct value
+            schedule: finalScheduleValue, // Always use the direct value
             instructorId: parseInt(formData.get('instructorId'))
         };
         
@@ -893,17 +940,31 @@ document.addEventListener('DOMContentLoaded', () => {
     function hideModal(modal) {
         if (!modal) return;
         
+        console.log('Hiding modal...');
         modal.classList.remove('active');
         document.body.classList.remove('modal-open');
         
+        // Force an immediate hide if it gets stuck
+        setTimeout(() => {
+            if (modal.style.display !== 'none') {
+                console.log('Forcing modal hide after timeout');
+                modal.style.display = 'none';
+            }
+        }, 500); // Give a short time for transitions, then force hide
+        
         // Wait for transition to finish
         const handleTransitionEnd = () => {
+            console.log('Modal transition ended');
             if (!modal.classList.contains('active')) {
                 modal.style.display = 'none';
             }
             modal.removeEventListener('transitionend', handleTransitionEnd);
         };
         
+        // Clean up any existing event listeners first
+        modal.removeEventListener('transitionend', handleTransitionEnd);
+        
+        // Add the new event listener
         modal.addEventListener('transitionend', handleTransitionEnd);
     }
 
