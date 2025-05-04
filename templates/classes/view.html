@@ -423,15 +423,11 @@
         }
         
         try {
-            const response = await fetch('/classes/api/unenroll', {
-                method: 'POST',
+            const response = await fetch(`/classes/api/${classId}/unenroll/${studentId}`, {
+                method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    studentId: studentId,
-                    classId: classId
-                })
+                }
             });
             
             const result = await response.json();
