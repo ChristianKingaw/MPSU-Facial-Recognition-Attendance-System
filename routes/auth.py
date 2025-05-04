@@ -78,3 +78,88 @@ def register():
         return redirect(url_for('auth.login'))
     
     return render_template('login.html', form=form, register=True)
+
+@auth_bp.route('/profile', methods=['GET'])
+@login_required
+def profile():
+    profile_form = ProfileUpdateForm(
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        email=current_user.email
+    )
+    picture_form = ProfilePictureForm()
+    
+    return render_template('profile.html', profile_form=profile_form, picture_form=picture_form)
+
+@auth_bp.route('/profile/update', methods=['POST'])
+@login_required
+def update_profile():
+    profile_form = ProfileUpdateForm()
+    
+    if profile_form.validate_on_submit():
+        # First check if the current password is provided and correct for any changes
+        if profile_form.current_password.data:
+            if not current_user.check_password(profile_form.current_password.data):
+                flash('Current password is incorrect.', 'danger')
+                return redirect(url_for('auth.profile'))
+            
+            # If new password is provided, update it
+            if profile_form.new_password.data:
+                current_user.set_password(profile_form.new_password.data)
+                flash('Password updated successfully.', 'success')
+        
+        # Update the user profile
+        current_user.first_name = profile_form.first_name.data
+        current_user.last_name = profile_form.last_name.data
+        current_user.email = profile_form.email.data
+        
+        # Update the session with the new name
+        session['user_name'] = f"{current_user.first_name} {current_user.last_name}"
+        
+        # Commit changes to the database
+        db.session.commit()
+        
+        flash('Profile updated successfully!', 'success')
+        return redirect(url_for('auth.profile'))
+    
+    # If form validation fails, go back to the profile page with errors
+    picture_form = ProfilePictureForm()
+    return render_template('profile.html', profile_form=profile_form, picture_form=picture_form)
+
+@auth_bp.route('/profile/picture', methods=['POST'])
+@login_required
+def update_profile_picture():
+    picture_form = ProfilePictureForm()
+    
+    if picture_form.validate_on_submit():
+        # Check if a picture file was uploaded
+        if picture_form.profile_picture.data:
+            # Get the uploaded file
+            file = picture_form.profile_picture.data
+            
+            # Create a unique filename
+            filename = secure_filename(f"{uuid.uuid4()}_{file.filename}")
+            
+            # Create the uploads directory if it doesn't exist
+            uploads_dir = os.path.join(current_app.static_folder, 'uploads')
+            os.makedirs(uploads_dir, exist_ok=True)
+            
+            # Save the file
+            file_path = os.path.join(uploads_dir, filename)
+            file.save(file_path)
+            
+            # Delete the old profile picture if it exists
+            if current_user.profile_picture:
+                old_file_path = os.path.join(uploads_dir, current_user.profile_picture)
+                if os.path.exists(old_file_path):
+                    os.remove(old_file_path)
+            
+            # Update the user's profile picture in the database
+            current_user.profile_picture = filename
+            db.session.commit()
+            
+            flash('Profile picture updated successfully!', 'success')
+        else:
+            flash('No picture selected.', 'warning')
+    
+    return redirect(url_for('auth.profile'))
