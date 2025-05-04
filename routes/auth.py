@@ -11,7 +11,7 @@ from models import User
 from forms import LoginForm, RegisterForm, ProfileUpdateForm, ProfilePictureForm
 
 # Create the blueprint for authentication routes
-auth_bp = Blueprint('auth', __name__)
+auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 @auth_bp.route('/', methods=['GET'])
 def index():

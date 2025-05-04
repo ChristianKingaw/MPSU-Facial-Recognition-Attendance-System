@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask
+from flask import Flask, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from sqlalchemy.orm import DeclarativeBase
@@ -50,6 +50,11 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(students_bp)
 app.register_blueprint(classes_bp)
 app.register_blueprint(attendance_bp)
+
+# Root route to redirect to login page
+@app.route('/')
+def index():
+    return redirect(url_for('auth.login'))
 
 # Import models and create all tables
 with app.app_context():
