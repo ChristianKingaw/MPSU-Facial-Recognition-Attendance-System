@@ -22,30 +22,45 @@ def schedule():
 @classes_bp.route('/api/list', methods=['GET'])
 @login_required
 def get_classes():
-    classes = Class.query.all()
-    
-    # Convert to dictionary
-    class_list = []
-    for cls in classes:
-        # Get the instructor name
-        instructor = User.query.get(cls.instructor_id)
-        instructor_name = f"{instructor.first_name} {instructor.last_name}" if instructor else "Unknown"
+    try:
+        print("Fetching classes from database...")
+        classes = Class.query.all()
+        print(f"Found {len(classes)} classes")
         
-        # Count enrolled students
-        enrolled_count = Enrollment.query.filter_by(class_id=cls.id).count()
+        # Convert to dictionary
+        class_list = []
+        for cls in classes:
+            try:
+                # Get the instructor name
+                instructor = User.query.get(cls.instructor_id)
+                if instructor:
+                    instructor_name = f"{instructor.first_name} {instructor.last_name}"
+                else:
+                    print(f"Warning: No instructor found for ID {cls.instructor_id}")
+                    instructor_name = "Unknown"
+                
+                # Count enrolled students
+                enrolled_count = Enrollment.query.filter_by(class_id=cls.id).count()
+                
+                class_list.append({
+                    'id': cls.id,
+                    'classCode': cls.class_code,
+                    'description': cls.description,
+                    'roomNumber': cls.room_number,
+                    'schedule': cls.schedule,
+                    'instructorId': cls.instructor_id,
+                    'instructorName': instructor_name,
+                    'enrolledCount': enrolled_count
+                })
+            except Exception as e:
+                print(f"Error processing class {cls.id}: {str(e)}")
+                # Continue with the next class rather than failing completely
         
-        class_list.append({
-            'id': cls.id,
-            'classCode': cls.class_code,
-            'description': cls.description,
-            'roomNumber': cls.room_number,
-            'schedule': cls.schedule,
-            'instructorId': cls.instructor_id,
-            'instructorName': instructor_name,
-            'enrolledCount': enrolled_count
-        })
-    
-    return jsonify(class_list)
+        print(f"Returning {len(class_list)} classes in response")
+        return jsonify(class_list)
+    except Exception as e:
+        print(f"Error in get_classes: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @classes_bp.route('/api/create', methods=['POST'])
 @login_required

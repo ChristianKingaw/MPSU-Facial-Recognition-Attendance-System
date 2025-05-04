@@ -200,16 +200,38 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fetch courses from the API
     async function fetchCourses() {
         try {
+            console.log('Fetching courses from API...');
             const response = await fetch('/courses/api/list');
+            
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorText = await response.text();
+                console.error(`HTTP error! status: ${response.status}, response: ${errorText}`);
+                throw new Error(`Server error: ${response.status} - ${errorText}`);
             }
+            
             const data = await response.json();
-            state.courses = data;
+            console.log(`Received ${data.length} courses from API`);
+            
+            // Check if the response is an error object
+            if (data.error) {
+                console.error('API returned error:', data.error);
+                throw new Error(`API error: ${data.error}`);
+            }
+            
+            state.courses = Array.isArray(data) ? data : [];
             populateCourseDropdown();
-            return data;
+            return state.courses;
         } catch (error) {
             console.error('Error fetching courses:', error);
+            
+            // Display error in console with more details
+            if (error.message) {
+                console.error('Error message:', error.message);
+            }
+            
+            // Reset the state to empty array to prevent null errors
+            state.courses = [];
+            
             throw error;
         }
     }
@@ -258,15 +280,37 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fetch classes from the API
     async function fetchClasses() {
         try {
+            console.log('Fetching classes from API...');
             const response = await fetch('/classes/api/list');
+            
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorText = await response.text();
+                console.error(`HTTP error! status: ${response.status}, response: ${errorText}`);
+                throw new Error(`Server error: ${response.status} - ${errorText}`);
             }
+            
             const data = await response.json();
-            state.classes = data;
-            return data;
+            console.log(`Received ${data.length} classes from API`);
+            
+            // Check if the response is an error object
+            if (data.error) {
+                console.error('API returned error:', data.error);
+                throw new Error(`API error: ${data.error}`);
+            }
+            
+            state.classes = Array.isArray(data) ? data : [];
+            return state.classes;
         } catch (error) {
             console.error('Error fetching classes:', error);
+            
+            // Display error in console with more details
+            if (error.message) {
+                console.error('Error message:', error.message);
+            }
+            
+            // Reset the state to empty array to prevent null errors
+            state.classes = [];
+            
             throw error;
         }
     }
@@ -274,15 +318,37 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fetch students from the API
     async function fetchStudents() {
         try {
+            console.log('Fetching students from API...');
             const response = await fetch('/students/api/list');
+            
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorText = await response.text();
+                console.error(`HTTP error! status: ${response.status}, response: ${errorText}`);
+                throw new Error(`Server error: ${response.status} - ${errorText}`);
             }
+            
             const data = await response.json();
-            state.students = data;
-            return data;
+            console.log(`Received ${data.length} students from API`);
+            
+            // Check if the response is an error object
+            if (data.error) {
+                console.error('API returned error:', data.error);
+                throw new Error(`API error: ${data.error}`);
+            }
+            
+            state.students = Array.isArray(data) ? data : [];
+            return state.students;
         } catch (error) {
             console.error('Error fetching students:', error);
+            
+            // Display error in console with more details
+            if (error.message) {
+                console.error('Error message:', error.message);
+            }
+            
+            // Reset the state to empty array to prevent null errors
+            state.students = [];
+            
             throw error;
         }
     }
