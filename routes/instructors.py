@@ -523,6 +523,11 @@ def upload_student_image(student_id):
     if not allowed_file(file.filename):
         return jsonify({'success': False, 'message': 'File type not allowed. Please upload JPG, JPEG, or PNG files.'})
     
+    # Check the maximum number of images (6)
+    face_encodings = FaceEncoding.query.filter_by(student_id=student_id).all()
+    if len(face_encodings) >= 6:
+        return jsonify({'success': False, 'message': 'Maximum of 6 images allowed per student. Please delete an existing image first.'})
+    
     try:
         # Save the image
         image_path = save_image(file, folder='students')
@@ -541,14 +546,21 @@ def upload_student_image(student_id):
         db.session.add(face_encoding)
         db.session.commit()
         
+        # Check if we've reached the minimum of 3 images
+        current_image_count = FaceEncoding.query.filter_by(student_id=student_id).count()
+        message = 'Image uploaded successfully.'
+        if current_image_count < 3:
+            message += f' Please upload at least {3 - current_image_count} more image(s) for reliable facial recognition.'
+        
         return jsonify({
             'success': True,
-            'message': 'Image uploaded successfully',
+            'message': message,
             'image': {
                 'id': face_encoding.id,
                 'url': url_for('static', filename=image_path.replace('static/', '')),
                 'created_at': face_encoding.created_at.strftime('%Y-%m-%d %H:%M:%S')
-            }
+            },
+            'imageCount': current_image_count
         })
     except Exception as e:
         db.session.rollback()
