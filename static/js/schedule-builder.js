@@ -162,8 +162,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update display
         updateScheduleDisplay();
         
-        // Reset inputs
-        resetInputs();
+        // Only clear time inputs, but keep the selected days
+        // This allows adding multiple time slots for the same days
+        startTimeInput.value = '';
+        endTimeInput.value = '';
     }
     
     // Update the schedule display
@@ -216,6 +218,29 @@ document.addEventListener('DOMContentLoaded', function() {
         // Clear time inputs
         startTimeInput.value = '';
         endTimeInput.value = '';
+    }
+    
+    // Reset only time inputs, keeping selected days
+    function resetTimeInputs() {
+        startTimeInput.value = '';
+        endTimeInput.value = '';
+    }
+    
+    // Add Reset Days button to clear day selection
+    const resetDaysBtn = document.createElement('button');
+    resetDaysBtn.type = 'button';
+    resetDaysBtn.className = 'btn btn-outline-secondary btn-sm mt-2';
+    resetDaysBtn.textContent = 'Reset Day Selection';
+    resetDaysBtn.addEventListener('click', function() {
+        document.querySelectorAll('.day-btn.active').forEach(btn => {
+            btn.classList.remove('active');
+        });
+    });
+    
+    // Add the button to the day selection area
+    const daySelection = document.querySelector('.day-selection');
+    if (daySelection) {
+        daySelection.appendChild(resetDaysBtn);
     }
     
     // Initialize on load
