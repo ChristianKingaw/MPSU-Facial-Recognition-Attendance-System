@@ -347,12 +347,22 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Show a modal
     function showModal(modal) {
-        modal.classList.add('show');
+        console.log('Showing modal:', modal);
+        if (!modal) {
+            console.error('Modal element is null or undefined');
+            return;
+        }
+        modal.style.display = 'flex';
     }
     
     // Hide a modal
     function hideModal(modal) {
-        modal.classList.remove('show');
+        console.log('Hiding modal:', modal);
+        if (!modal) {
+            console.error('Modal element is null or undefined');
+            return;
+        }
+        modal.style.display = 'none';
     }
     
     // Show the edit student modal
