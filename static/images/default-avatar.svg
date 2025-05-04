@@ -1,5 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80" fill="none">
-  <rect width="80" height="80" fill="#6c757d"/>
-  <path d="M40 40C46.0751 40 51 35.0751 51 29C51 22.9249 46.0751 18 40 18C33.9249 18 29 22.9249 29 29C29 35.0751 33.9249 40 40 40Z" fill="#fff"/>
-  <path d="M40 44C28.9543 44 20 52.9543 20 64V65H60V64C60 52.9543 51.0457 44 40 44Z" fill="#fff"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200px" height="200px" viewBox="0 0 200 200" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Default Avatar</title>
+    <defs>
+        <linearGradient x1="0%" y1="0%" x2="100%" y2="100%" id="linearGradient">
+            <stop stop-color="#343a40" offset="0%"></stop>
+            <stop stop-color="#212529" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="Avatar" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <circle id="Background" fill="url(#linearGradient)" cx="100" cy="100" r="100"></circle>
+        <path d="M100,50 C116.569,50 130,63.4315 130,80 C130,96.5685 116.569,110 100,110 C83.4315,110 70,96.5685 70,80 C70,63.4315 83.4315,50 100,50 Z" id="Head" fill="#FFFFFF"></path>
+        <path d="M100,125 C134.183,125 162.676,147.159 170.541,177.754 C153.948,191.599 128.092,200 100,200 C71.9082,200 46.052,191.599 29.4592,177.754 C37.3238,147.159 65.8172,125 100,125 Z" id="Body" fill="#FFFFFF"></path>
+    </g>
 </svg>
