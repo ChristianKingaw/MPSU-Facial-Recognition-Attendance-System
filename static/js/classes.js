@@ -363,9 +363,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show Classes View
     function showClassesView() {
         hideAllViews();
-        elements.classesView.classList.remove('d-none');
-        state.currentClassId = null;
-        renderClassesTable();
+        if (elements.classesView) {
+            elements.classesView.classList.remove('d-none');
+            state.currentClassId = null;
+            renderClassesTable();
+        } else {
+            console.error('Classes view element not found');
+        }
     }
 
     // Show Class Detail View
@@ -378,7 +382,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return showClassesView();
         }
         
-        document.getElementById('class-detail-title').textContent = classData.description;
+        const titleElement = document.getElementById('class-detail-title');
+        if (titleElement) {
+            titleElement.textContent = classData.description;
+        }
         
         // Get students enrolled in this class
         try {
@@ -391,7 +398,12 @@ document.addEventListener('DOMContentLoaded', () => {
             renderEnrolledStudents(students);
             
             hideAllViews();
-            elements.classDetailView.classList.remove('d-none');
+            if (elements.classDetailView) {
+                elements.classDetailView.classList.remove('d-none');
+            } else {
+                console.error('Class detail view element not found');
+                showAlert('Error displaying class details', 'danger');
+            }
             
         } catch (error) {
             console.error('Error fetching enrolled students:', error);
@@ -402,15 +414,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show Student Selection View
     function showStudentSelectionView() {
         hideAllViews();
-        elements.studentSelectionView.classList.remove('d-none');
-        renderAvailableStudents();
+        if (elements.studentSelectionView) {
+            elements.studentSelectionView.classList.remove('d-none');
+            renderAvailableStudents();
+        } else {
+            console.error('Student selection view element not found');
+            showAlert('Error displaying student selection', 'danger');
+        }
     }
 
     // Hide all views
     function hideAllViews() {
-        elements.classesView.classList.add('d-none');
-        elements.classDetailView.classList.add('d-none');
-        elements.studentSelectionView.classList.add('d-none');
+        if (elements.classesView) elements.classesView.classList.add('d-none');
+        if (elements.classDetailView) elements.classDetailView.classList.add('d-none');
+        if (elements.studentSelectionView) elements.studentSelectionView.classList.add('d-none');
     }
 
     // Render the classes table

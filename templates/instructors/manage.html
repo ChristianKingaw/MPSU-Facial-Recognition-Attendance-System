@@ -51,9 +51,12 @@
                                             <i class="fas fa-edit"></i>
                                         </button>
                                         <button class="btn action-btn btn-delete" 
-                                                onclick="confirmDelete('{{ instructor.id }}', '{{ instructor.first_name }} {{ instructor.last_name }}')"
-                                                {% if instructor.classes|length > 0 %}disabled{% endif %}
-                                                title="Delete Instructor">
+                                                {% if instructor.classes|length > 0 %}
+                                                    onclick="showCannotDeleteMessage('{{ instructor.first_name }} {{ instructor.last_name }}', {{ instructor.classes|length }})"
+                                                {% else %}
+                                                    onclick="confirmDelete('{{ instructor.id }}', '{{ instructor.first_name }} {{ instructor.last_name }}')"
+                                                {% endif %}
+                                                title="{% if instructor.classes|length > 0 %}Cannot delete - has assigned classes{% else %}Delete Instructor{% endif %}">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </td>
@@ -204,6 +207,33 @@
         // Show the confirmation modal
         var modal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
         modal.show();
+    }
+    
+    // Show message for instructors with assigned classes who cannot be deleted
+    function showCannotDeleteMessage(instructorName, classCount) {
+        // Create a Bootstrap alert to show the message
+        const alertContainer = document.createElement('div');
+        alertContainer.className = 'alert alert-warning alert-dismissible fade show';
+        alertContainer.setAttribute('role', 'alert');
+        
+        const plural = classCount > 1 ? 'classes' : 'class';
+        alertContainer.innerHTML = `
+            <strong>Cannot delete ${instructorName}!</strong> 
+            This instructor has ${classCount} assigned ${plural}. You must reassign or delete these classes first.
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        // Get the container where we'll show this message
+        const container = document.querySelector('.container-fluid');
+        
+        // Insert at the beginning of the container, before any other content
+        container.insertBefore(alertContainer, container.firstChild);
+        
+        // Auto dismiss after 5 seconds
+        setTimeout(() => {
+            const bsAlert = new bootstrap.Alert(alertContainer);
+            bsAlert.close();
+        }, 5000);
     }
     
     // Handle Edit Instructor Modal
