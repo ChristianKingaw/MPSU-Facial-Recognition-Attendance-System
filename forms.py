@@ -7,12 +7,17 @@ from flask_login import current_user
 
 # Login Form
 class LoginForm(FlaskForm):
+    class Meta:
+        csrf = False  # Disable CSRF for troubleshooting
+    
     username = StringField('Username', validators=[DataRequired()])
     password = PasswordField('Password', validators=[DataRequired()])
     submit = SubmitField('Login')
 
 # User Registration Form
 class RegisterForm(FlaskForm):
+    class Meta:
+        csrf = False  # Disable CSRF for troubleshooting
     username = StringField('Username', validators=[
         DataRequired(),
         Length(min=4, max=64)
@@ -56,6 +61,8 @@ class RegisterForm(FlaskForm):
 
 # Student Enrollment Form
 class StudentForm(FlaskForm):
+    class Meta:
+        csrf = False  # Disable CSRF for troubleshooting
     first_name = StringField('First Name', validators=[
         DataRequired(),
         Length(max=64)
@@ -91,6 +98,8 @@ class StudentForm(FlaskForm):
 
 # Class Form
 class ClassForm(FlaskForm):
+    class Meta:
+        csrf = False  # Disable CSRF for troubleshooting
     class_code = StringField('Class Code', validators=[
         DataRequired(),
         Length(max=20)

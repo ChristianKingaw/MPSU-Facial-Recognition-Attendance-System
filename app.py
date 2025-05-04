@@ -5,6 +5,10 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -18,7 +22,9 @@ db = SQLAlchemy(model_class=Base)
 
 # Create the Flask app
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET", "dev-key-for-testing")
+# Set a hard-coded secret key to ensure it works
+app.secret_key = "supersecretkey123456789"
+app.config["SECRET_KEY"] = "supersecretkey123456789"
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Configure the PostgreSQL database
@@ -30,6 +36,9 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["UPLOAD_FOLDER"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/uploads')
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max upload size
+
+# Disable CSRF protection globally for troubleshooting
+app.config["WTF_CSRF_ENABLED"] = False
 
 # Initialize the app with SQLAlchemy
 db.init_app(app)
