@@ -91,23 +91,37 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Student Pictures</h3>
+                <h3 class="modal-title">Student Facial Recognition Images</h3>
                 <button class="close-btn" id="closePicturesModal">&times;</button>
             </div>
-            <div class="modal-body text-center">
-                <p class="pictures-title" id="student-name-display"></p>
-                <div id="current-pictures-container" class="d-flex flex-wrap gap-2 mb-4">
-                    <div class="text-center text-muted">No images available</div>
+            <div class="modal-body">
+                <h4 class="pictures-title mb-3" id="student-name-display"></h4>
+                <p class="mb-3 text-muted">Upload clear frontal face images for facial recognition attendance. Multiple angles improve recognition accuracy.</p>
+                
+                <div class="pictures-preview" id="current-pictures-container">
+                    <div class="picture-container picture-placeholder">
+                        <i class="fas fa-camera fa-2x mb-2"></i>
+                        <span>No images yet</span>
+                    </div>
                 </div>
+                
                 <form id="student-image-form" enctype="multipart/form-data">
                     <input type="hidden" id="student-id-for-image">
-                    <div class="form-group">
-                        <label for="student-image-upload">Upload New Image</label>
-                        <input type="file" class="form-control" id="student-image-upload" name="image" accept="image/jpeg,image/png" required>
-                        <small class="form-text text-muted">Supported formats: JPG, PNG. Max size: 5MB</small>
-                    </div>
-                    <div class="mt-3">
-                        <button type="submit" class="btn-save">Upload Image</button>
+                    <div class="image-upload-container">
+                        <div class="form-group mb-3">
+                            <label for="student-image-upload" class="form-label">
+                                <i class="fas fa-cloud-upload-alt me-2"></i>Upload New Face Image
+                            </label>
+                            <input type="file" class="form-control" id="student-image-upload" name="image" accept="image/jpeg,image/png" required>
+                            <div class="form-text mt-2">
+                                <small><i class="fas fa-info-circle me-1"></i>Supported formats: JPG, JPEG, PNG</small><br>
+                                <small><i class="fas fa-info-circle me-1"></i>Clear, well-lit frontal face photos work best</small><br>
+                                <small><i class="fas fa-info-circle me-1"></i>Max file size: 5MB</small>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-save">
+                            <i class="fas fa-upload me-2"></i>Upload Image
+                        </button>
                     </div>
                 </form>
             </div>
@@ -367,7 +381,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Load student images
         try {
-            const response = await fetch(`/students/api/images/${studentId}`);
+            const response = await fetch(`/instructors/api/student-images/${studentId}`);
             const data = await response.json();
             
             if (data.success) {
@@ -571,11 +585,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         const formData = new FormData();
-        formData.append('student_id', studentId);
         formData.append('image', imageFile);
         
         try {
-            const response = await fetch('/students/api/upload-image', {
+            const response = await fetch(`/instructors/api/upload-student-image/${studentId}`, {
                 method: 'POST',
                 body: formData
             });
@@ -606,8 +619,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         try {
-            const response = await fetch(`/students/api/delete-image/${imageId}`, {
-                method: 'DELETE'
+            const response = await fetch(`/instructors/api/delete-student-image/${imageId}`, {
+                method: 'POST'
             });
             
             const result = await response.json();

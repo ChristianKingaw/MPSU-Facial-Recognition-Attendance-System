@@ -1,11 +1,14 @@
-from flask import Blueprint, render_template, redirect, url_for, request, jsonify, flash
+from flask import Blueprint, render_template, redirect, url_for, request, jsonify, flash, current_app
 from flask_login import login_required, current_user
 import datetime
+import os
+import uuid
+from werkzeug.utils import secure_filename
 from sqlalchemy.orm import joinedload
 
 from app import db
 from models import User, Class, Student, Enrollment, FaceEncoding, AttendanceRecord
-from forms import RegisterForm, StudentForm, EnrollmentForm
+from forms import RegisterForm, StudentForm, EnrollmentForm, ProfilePictureForm
 
 instructors_bp = Blueprint('instructors', __name__, url_prefix='/instructors')
 
@@ -409,6 +412,192 @@ def get_student_attendance(student_id, class_id):
             'records': attendance_data
         }
     })
+
+# Helper function to check allowed file extensions
+def allowed_file(filename):
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# Helper function to save an uploaded file
+def save_image(file, folder='students'):
+    if file and allowed_file(file.filename):
+        # Create a unique filename with UUID
+        filename = secure_filename(file.filename)
+        filename = f"{uuid.uuid4().hex}_{filename}"
+        
+        # Ensure the upload folder exists
+        upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], folder)
+        os.makedirs(upload_path, exist_ok=True)
+        
+        # Save the file
+        file_path = os.path.join(upload_path, filename)
+        file.save(file_path)
+        
+        # Return the relative path for storing in database
+        return os.path.join('uploads', folder, filename)
+    
+    return None
+
+@instructors_bp.route('/api/student-images/<string:student_id>', methods=['GET'])
+@login_required
+def get_student_images(student_id):
+    """Get all facial recognition images for a student"""
+    # Access check - instructors can only view students in their classes
+    if current_user.role == 'instructor':
+        # Check if student is in any of this instructor's classes
+        classes = Class.query.filter_by(instructor_id=current_user.id).all()
+        class_ids = [class_obj.id for class_obj in classes]
+        
+        enrollment = Enrollment.query.filter(
+            Enrollment.student_id == student_id,
+            Enrollment.class_id.in_(class_ids)
+        ).first()
+        
+        if not enrollment:
+            return jsonify({'success': False, 'message': 'Student not found in your classes'})
+    elif current_user.role != 'admin':
+        return jsonify({'success': False, 'message': 'Unauthorized'})
+    
+    # Get student details
+    student = Student.query.get(student_id)
+    if not student:
+        return jsonify({'success': False, 'message': 'Student not found'})
+    
+    # Get face encodings
+    face_encodings = FaceEncoding.query.filter_by(student_id=student_id).all()
+    
+    # Format response
+    images = []
+    for encoding in face_encodings:
+        if encoding.image_path:
+            images.append({
+                'id': encoding.id,
+                'url': url_for('static', filename=encoding.image_path.replace('static/', '')),
+                'created_at': encoding.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            })
+    
+    return jsonify({
+        'success': True,
+        'student': {
+            'id': student.id,
+            'name': f"{student.first_name} {student.last_name}"
+        },
+        'images': images
+    })
+
+@instructors_bp.route('/api/upload-student-image/<string:student_id>', methods=['POST'])
+@login_required
+def upload_student_image(student_id):
+    """Upload a facial recognition image for a student"""
+    # Access check - instructors can only upload for students in their classes
+    if current_user.role == 'instructor':
+        # Check if student is in any of this instructor's classes
+        classes = Class.query.filter_by(instructor_id=current_user.id).all()
+        class_ids = [class_obj.id for class_obj in classes]
+        
+        enrollment = Enrollment.query.filter(
+            Enrollment.student_id == student_id,
+            Enrollment.class_id.in_(class_ids)
+        ).first()
+        
+        if not enrollment:
+            return jsonify({'success': False, 'message': 'Student not found in your classes'})
+    elif current_user.role != 'admin':
+        return jsonify({'success': False, 'message': 'Unauthorized'})
+    
+    # Check if student exists
+    student = Student.query.get(student_id)
+    if not student:
+        return jsonify({'success': False, 'message': 'Student not found'})
+    
+    # Check if the post request has the file part
+    if 'image' not in request.files:
+        return jsonify({'success': False, 'message': 'No file part'})
+    
+    file = request.files['image']
+    
+    # If user does not select file, browser may submit an empty file
+    if file.filename == '':
+        return jsonify({'success': False, 'message': 'No selected file'})
+    
+    if not allowed_file(file.filename):
+        return jsonify({'success': False, 'message': 'File type not allowed. Please upload JPG, JPEG, or PNG files.'})
+    
+    try:
+        # Save the image
+        image_path = save_image(file, folder='students')
+        
+        if not image_path:
+            return jsonify({'success': False, 'message': 'Error saving file'})
+        
+        # Create a new face encoding record
+        face_encoding = FaceEncoding(
+            student_id=student_id,
+            encoding_data=b'',  # Empty bytes, will be processed by facial recognition system later
+            image_path=image_path,
+            created_at=datetime.datetime.utcnow()
+        )
+        
+        db.session.add(face_encoding)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Image uploaded successfully',
+            'image': {
+                'id': face_encoding.id,
+                'url': url_for('static', filename=image_path.replace('static/', '')),
+                'created_at': face_encoding.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Error uploading image: {str(e)}'})
+
+@instructors_bp.route('/api/delete-student-image/<int:image_id>', methods=['POST'])
+@login_required
+def delete_student_image(image_id):
+    """Delete a facial recognition image"""
+    # Get the face encoding
+    face_encoding = FaceEncoding.query.get(image_id)
+    
+    if not face_encoding:
+        return jsonify({'success': False, 'message': 'Image not found'})
+    
+    # Access check - instructors can only delete for students in their classes
+    if current_user.role == 'instructor':
+        # Check if student is in any of this instructor's classes
+        classes = Class.query.filter_by(instructor_id=current_user.id).all()
+        class_ids = [class_obj.id for class_obj in classes]
+        
+        enrollment = Enrollment.query.filter(
+            Enrollment.student_id == face_encoding.student_id,
+            Enrollment.class_id.in_(class_ids)
+        ).first()
+        
+        if not enrollment:
+            return jsonify({'success': False, 'message': 'Student not found in your classes'})
+    elif current_user.role != 'admin':
+        return jsonify({'success': False, 'message': 'Unauthorized'})
+    
+    try:
+        # Delete the file if it exists
+        if face_encoding.image_path:
+            file_path = os.path.join(current_app.static_folder, face_encoding.image_path.replace('static/', ''))
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        
+        # Delete the database record
+        db.session.delete(face_encoding)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Image deleted successfully'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Error deleting image: {str(e)}'})
 
 @instructors_bp.route('/api/update-attendance', methods=['POST'])
 @login_required
