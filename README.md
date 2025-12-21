@@ -142,6 +142,7 @@ Ending a class in FRCAS is done through the instructor console. The instructor o
 1. Install the Visual Studio workload (full GUI): open Visual Studio Installer → Modify your installation → check “Desktop development with C++”  →
 
  ![image00](images/image00.png)
+ 
 → Now make sure the following was checked → Install.
 
 ![image01](images/image.png)
