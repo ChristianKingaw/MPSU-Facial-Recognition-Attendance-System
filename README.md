@@ -20,7 +20,9 @@ A Flask-based server for a facial recognition attendance system, managing user a
 
 ## Administrator Interface
 
+
 ![Admin Interface](images/admin.png)
+
  
 The administrator interface is a web-based dashboard for managing the MPSU Attendance Management System. It provides administrators with comprehensive tools to oversee students, instructors, courses, classes, and attendance tracking.
 
