@@ -121,7 +121,15 @@ A match is confirmed when the distance score is below the required threshold.If 
  
 The room verification makes sure only one class session uses a room at a time. When an instructor starts a session a room verification modal appears and shows the class code and a list of rooms. The system checks all active sessions for the day and marks any room that is currently in use. Available rooms appear normally while occupied rooms show an occupied label. If a room is taken the system shows the class and instructor using it. The instructor can choose an available room or override the warning if needed. After selecting a room the system creates a new session assigns the room and starts the scanner. The system keeps checking active sessions every few seconds so all devices stay updated on room occupancy. This process prevents room conflicts supports overrides when needed and keeps session data secure and accurate.
 
-#### Facial Recognition/Scanner
+## Facial Recognition/Scanner
+
+![kiosk](images/kiosk.png)
+
+<hr>
+
+<br></br>
+
+---
  
 The facial recognition scanner is a full-screen application built with CustomTkinter and is used on client devices to take attendance. It runs with three main parts which handle the camera the face recognition and the interface. The scanner uses OpenCV to capture video and detect faces then DeepFace Facenet512 to create face embeddings and match them with cached student or instructor data. When a student is recognized with enough confidence the scanner sends a record to the backend and the system marks the student as present, late, or absent based on the class start time.
 
