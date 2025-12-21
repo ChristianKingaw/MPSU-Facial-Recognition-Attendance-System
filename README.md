@@ -1,8 +1,9 @@
 <h1 align="center">MPSU-Facial-Recognition-Attendance-System</h1>
-<p align="center">
-A Flask-based server for a facial recognition attendance system, managing user authentication, facial embeddings, attendance tracking, and API services.
 
 ![Login Page](images/login.jpg)
+
+<p align="center">
+A Flask-based server for a facial recognition attendance system, managing user authentication, facial embeddings, attendance tracking, and API services.
 
 ## User Manual
 
