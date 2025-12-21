@@ -144,7 +144,7 @@ Ending a class in FRCAS is done through the instructor console. The instructor o
  ![image00](images/image00.png)
 → Now make sure the following was checked → Install.
 
-![image01](images/image01.png)
+![image01](images/image.png)
    
 
 2. Download CMake from its official website at https://cmake.org/download/ and run the installer. Choose the option that adds CMake to your system PATH. When everything is installed open Command Prompt and type cmake --version to check CMake and cl to check the C++ compiler. If both work your system is ready to build packages that need CMake and C++ tools.
