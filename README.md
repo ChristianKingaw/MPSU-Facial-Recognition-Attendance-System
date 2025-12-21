@@ -133,7 +133,9 @@ After that the images are saved, processed, and used to create face encodings fo
 Ending a class in FRCAS is done through the instructor console. The instructor opens the console from the client during an active session and unlocks it using facial recognition. After entering, the instructor uses the End Class button to finish the session. The system then checks all enrolled students, marks those who scanned as present, and marks the rest as absent. It also records the instructor’s checkout time and closes the session so no more scans can be made.
 
   When the class is successfully ended, the scanner closes and the system returns to the class selection page. Reports in the web portal update right away, showing the class has ended. If the class was already ended or the instructor does not have permission, the system shows an error. This process keeps attendance accurate, prevents duplicate records, and makes sure each class is closed safely and on time.
+<hr>
 
+---
 ## Software Installation Procedure
 
 ### Installing the server
