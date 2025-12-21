@@ -85,6 +85,7 @@ The Settings Page enables an administrator to manage personal and system setting
 <br></br>
 <br></br>
 
+---
 
 ## Instructor Interface
 
