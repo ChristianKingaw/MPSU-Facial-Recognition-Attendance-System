@@ -179,3 +179,17 @@ psql -U postgres -c "CREATE DATABASE frcas_db OWNER frcas_user;"
 flask db upgrade
 
 4. All set up. The virtual environment is active the database is created and migrations have been applied. The application is now ready to run and connect to PostgreSQL without issues.
+
+
+### UPDATE:
+-for migration steps:
+On the first migration attempt we (after your venv activation) set the Flask app target and ran the upgrade:
+$env:FLASK_APP="backend.app"
+flask db upgrade -d backend/migrations
+
+That run hit the term_enum duplicate-type error. After updating the migration file to guard enum creation we reran:
+flask db upgrade -d backend/migrations
+flask db current -d backend/migrations
+
+Those were the only commands involved in the initial migration sequence.
+
