@@ -1,0 +1,576 @@
+{% extends "instructor_layout.html" %}
+
+{% block title %}Class Attendance{% endblock %}
+
+{% block content %}
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: white;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        h1 {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 32px;
+        }
+        .header-cards {
+            display: flex;
+            gap: 48px;
+            margin-bottom: 32px;
+        }
+        .card {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 16px;
+            flex: 1;
+        }
+        .card-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .card-value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .semester-year {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .controls {
+            margin-bottom: 32px;
+        }
+        .select-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        label {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        select {
+            width: 200px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .legend {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .legend-items {
+            display: flex;
+            gap: 16px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-box {
+            width: 32px;
+            height: 32px;
+            border: 1px solid;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .present { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .late { background-color: #fff3cd; color: #856404; border-color: #ffeaa7; }
+        .absent { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #ddd;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .attendance-cell {
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+            text-align: center;
+        }
+        .attendance-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: black;
+            margin: 0 auto;
+        }
+        .attendance-btn.present {
+            background-color: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+        .attendance-btn.late {
+            background-color: #fff3cd;
+            color: #856404;
+            border-color: #ffeaa7;
+        }
+        .attendance-btn.absent {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+        .time-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            align-items: center;
+            margin-top: 4px;
+        }
+        .time-display {
+            min-width: 90px;
+            padding: 2px 4px;
+            font-size: 12px;
+            text-align: center;
+            color: #444;
+            border-radius: 4px;
+            background-color: #f7f7f7;
+        }
+    </style>
+
+    <div id="pdf-content">
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h2 class="header-title mb-0"><i class="fas fa-user-check"></i> Class Attendance</h2>
+            <div class="header-cards">
+                <div class="semester-year">Semester: <u>{{ current_semester }}</u></div>
+                <div class="semester-year">School Year: <u>{{ current_school_year }}</u></div>
+            </div>
+        </div>
+    </div>
+</div>
+        <div class="controls">
+            <div class="select-group">
+                <label for="class-select">Class</label>
+                <select id="class-select" style="width: 300px;">
+                    <option>Select a class</option>
+                </select>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <div class="select-group">
+                    <label for="course-display">Course</label>
+                    <input type="text" id="course-display" readonly>
+                </div>
+                <div class="select-group">
+                    <label for="schedule-display">Schedule</label>
+                    <input type="text" id="schedule-display" readonly>
+                </div>
+                <div class="select-group">
+                    <label for="instructor-display">Instructor</label>
+                    <input type="text" id="instructor-display" readonly>
+                </div>
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-items">
+                <div class="legend-item">
+                    <div class="status-box present">P</div>
+                    <span>Present</span>
+                </div>
+                <div class="legend-item">
+                    <div class="status-box late">L</div>
+                    <span>Late</span>
+                </div>
+                <div class="legend-item">
+                    <div class="status-box absent">A</div>
+                    <span>Absent</span>
+                </div>
+            </div>
+            <button id="export-pdf">Export to PDF</button>
+        </div>
+
+        <table id="attendance-table">
+            <thead>
+                <tr id="table-header">
+                    <th>Student</th>
+                    <!-- Date columns will be dynamically added here, fetched from the recorded attendance from table attendance_record -->
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Students will be loaded here -->
+            </tbody>
+        </table>
+
+        <!-- Pagination controls -->
+        <div id="pagination-controls" style="display: none; margin-top: 20px; text-align: right;">
+            <button id="prev-page" class="btn btn-secondary btn-sm">Previous</button>
+            <span id="page-info" style="margin: 0 10px; font-size: 14px;">Page 1 of 1</span>
+            <button id="next-page" class="btn btn-secondary btn-sm">Next</button>
+        </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
+    <script src = "{{ url_for('static', filename='js/html2canvas.min.js') }}"></script>
+    <script src = "{{ url_for('static', filename='js/jspdf.umd.min.js') }}"></script>
+    <script>
+        $(document).ready(function() {
+            const dayMap = { 'M': 0, 'T': 1, 'W': 2, 'Th': 3, 'F': 4, 'S': 5 };
+            let currentDates = []; // Store the current dates for attendance fetching
+            let currentPage = 1;
+            let totalPages = 1;
+            const datesPerPage = 6; // Dates per page
+            let allClassDates = []; // Store all possible class dates
+
+            function generateTableBody(dates, students, attendanceData) {
+                const tbody = $('#attendance-table tbody');
+                tbody.empty();
+                if (students.length === 0) {
+                    tbody.append('<tr><td colspan="' + (dates.length + 1) + '" style="text-align: center;">No attendance records found for the selected dates</td></tr>');
+                    return;
+                }
+                students.forEach(function(student) {
+                    const row = $('<tr>').append('<td>' + student.name + '</td>');
+                    dates.forEach(function(date) {
+                        const dateStr = date.toISOString().split('T')[0];
+                        const att = attendanceData.attendance[student.id] ? attendanceData.attendance[student.id][dateStr] : null;
+                        const status = att ? att.status : '';
+                        const timeIn = att ? att.time_in : '';
+                        const timeOut = att ? att.time_out : '';
+                        const statusClass = status === 'PRESENT' ? 'present' : status === 'LATE' ? 'late' : 'absent';
+                        const statusText = status === 'PRESENT' ? 'P' : status === 'LATE' ? 'L' : status === 'ABSENT' ? 'A' : '';
+                        const displayIn = formatTime(timeIn);
+                        const displayOut = formatTime(timeOut);
+                        const cell = '<td class="attendance-cell">' +
+                            '<button class="attendance-btn ' + statusClass + '">' + statusText + '</button>' +
+                            '<div class="time-stack">' +
+                                '<span class="time-display">IN: ' + (displayIn || '--') + '</span>' +
+                                '<span class="time-display">OUT: ' + (displayOut || '--') + '</span>' +
+                            '</div>' +
+                        '</td>';
+                        row.append(cell);
+                    });
+                    tbody.append(row);
+                });
+            }
+
+            function generateClassDates(schedule, maxDates = 60) {
+                let dates = [];
+                let current = new Date();
+                
+                // Generate class dates starting from 30 days ago to 30 days in the future
+                let pastDays = 30;
+                let futureDays = 30;
+                
+                // Generate past dates
+                let pastCurrent = new Date(current);
+                for (let i = 0; i < pastDays; i++) {
+                    pastCurrent.setDate(pastCurrent.getDate() - 1);
+                    dates.unshift(new Date(pastCurrent)); // Add to beginning
+                }
+                
+                // Add current date
+                dates.push(new Date(current));
+                
+                // Generate future dates  
+                let futureCurrent = new Date(current);
+                for (let i = 0; i < futureDays; i++) {
+                    futureCurrent.setDate(futureCurrent.getDate() + 1);
+                    dates.push(new Date(futureCurrent));
+                }
+                
+                console.log('generated dates:', dates.length, 'dates from', dates[0], 'to', dates[dates.length-1]);
+                return dates; // In chronological order
+            }
+
+            function updateDateHeadersForPage(dates) {
+                currentDates = dates;
+                
+                // Update table header
+                let headerRow = $('#table-header');
+                headerRow.find('th:not(:first)').remove(); // Remove existing date headers
+                
+                currentDates.forEach((date, index) => {
+                    const formattedDate = date.toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric'
+                    });
+                    headerRow.append('<th>' + formattedDate + '</th>');
+                });
+            }
+
+            function formatTime(timeStr) {
+                if (!timeStr) return '';
+                let clean = timeStr.trim();
+                if (!clean) return '';
+                let hours;
+                let minutes;
+                const meridiemMatch = clean.match(/\s?(AM|PM)$/i);
+                if (meridiemMatch) {
+                    const meridiem = meridiemMatch[1].toUpperCase();
+                    const timePart = clean.replace(/\s?(AM|PM)$/i, '');
+                    const segments = timePart.split(':');
+                    hours = parseInt(segments[0], 10);
+                    minutes = segments.length > 1 ? parseInt(segments[1], 10) : 0;
+                    if (meridiem === 'PM' && hours !== 12) hours += 12;
+                    if (meridiem === 'AM' && hours === 12) hours = 0;
+                } else {
+                    const segments = clean.split(':');
+                    hours = parseInt(segments[0], 10);
+                    minutes = segments.length > 1 ? parseInt(segments[1], 10) : 0;
+                }
+                if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+                    return clean;
+                }
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                const displayHours = (hours % 12) || 12;
+                const displayMinutes = minutes.toString().padStart(2, '0');
+                return displayHours + ':' + displayMinutes + ' ' + ampm;
+            }
+
+            // Fetch and display current semester and school year
+            $.get('/admin/api/system-settings', function(settings) {
+                $('.semester-year').eq(0).html('Semester: <u>' + (settings.semester || '1st') + '</u>');
+                $('.semester-year').eq(1).html('School Year: <u>' + (settings.school_year || '2025-2026') + '</u>');
+            }).fail(function() {
+                // Fallback to defaults if API fails
+                $('.semester-year').eq(0).html('Semester: <u>1st</u>');
+                $('.semester-year').eq(1).html('School Year: <u>2025-2026</u>');
+            });
+
+            // Fetch classes assigned to the current instructor
+            $.get('/classes/api/list', function(data) {
+                $('#class-select').empty();
+                $('#class-select').append('<option value="">Select a class</option>');
+                data.forEach(function(cls) {
+                    $('#class-select').append('<option value="' + cls.id + '">' + cls.classCode + ' - ' + cls.courseName + '</option>');
+                });
+            });
+
+            // When class is selected, fetch attendance
+            $('#class-select').change(function() {
+                var classId = $(this).val();
+                if (classId) {
+                    // Fetch class details and set related displays
+                    $.get('/classes/api/' + classId, function(cls) {
+                        $('#course-display').val(cls.courseName);
+                        $('#schedule-display').val(cls.schedule);
+                        $('#instructor-display').val(cls.instructorName);
+
+                        // Generate class dates for the past 30 days to future 30 days
+                        allClassDates = generateClassDates(cls.schedule);
+                        console.log('allClassDates:', allClassDates.length, 'dates');
+                        totalPages = Math.ceil(allClassDates.length / datesPerPage);
+                        
+                        // Reset to page 1 and load attendance
+                        currentPage = 1;
+                        loadAttendance(1);
+                        
+                        // Start realtime updates
+                        startRealtimeUpdates();
+                    });
+                } else {
+                    // Clear the displays when no class is selected
+                    $('#course-display').val('');
+                    $('#schedule-display').val('');
+                    $('#instructor-display').val('');
+                    $('#table-header').find('th:not(:first)').remove();
+                    $('#pagination-controls').hide();
+                    allClassDates = [];
+                    totalPages = 1;
+                    currentPage = 1;
+                    
+                    // Stop realtime updates
+                    stopRealtimeUpdates();
+                }
+            });
+
+            function loadAttendance(page = 1) {
+                var classId = $('#class-select').val();
+                if (!classId || allClassDates.length === 0) return;
+                
+                currentPage = page;
+                
+                // NOTE: From now on, fetch data from the model class_attendance
+                // Get attendance data for ALL class dates first
+                let allDateStrings = allClassDates.map(d => d.toISOString().split('T')[0]).join(',');
+                $.get('/instructors/api/class-attendance/' + classId + '?dates=' + allDateStrings, function(attendanceData) {
+                    if (!attendanceData.success) {
+                        console.error('Failed to load attendance:', attendanceData.message);
+                        return;
+                    }
+                    
+                    // Filter dates to only include those with a class session (has_session = true)
+                    // This shows dates where attendance was recorded, even if all students are ABSENT
+                    let datesWithAttendance = allClassDates.filter(date => {
+                        let dateStr = date.toISOString().split('T')[0];
+                        return Object.keys(attendanceData.attendance).some(studentId => {
+                            let att = attendanceData.attendance[studentId][dateStr];
+                            // Show dates where a class session exists (has_session = true)
+                            return att && att.has_session === true;
+                        });
+                    });
+                    
+                    totalPages = Math.ceil(datesWithAttendance.length / datesPerPage);
+                    
+                    $.get('/instructors/api/class-students/' + classId, function(data) {
+                        var tbody = $('table tbody');
+                        tbody.empty();
+                        
+                        if (data.students.length === 0) {
+                            tbody.append('<tr><td colspan="' + (pageDates.length + 1) + '" style="text-align: center;">No students enrolled in this class</td></tr>');
+                            return;
+                        }
+                        
+                        // Calculate dates for current page
+                        let startIndex = (page - 1) * datesPerPage;
+                        let endIndex = Math.min(startIndex + datesPerPage, datesWithAttendance.length);
+                        let pageDates = datesWithAttendance.slice(startIndex, endIndex);
+                        
+                        if (pageDates.length === 0) {
+                            tbody.append('<tr><td colspan="' + (datesPerPage + 1) + '" style="text-align: center;">No attendance records found for the selected dates</td></tr>');
+                            // Clear date headers
+                            $('#table-header').find('th:not(:first)').remove();
+                            $('#pagination-controls').hide();
+                            return;
+                        }
+                        
+                        // Update table header with page dates
+                        updateDateHeadersForPage(pageDates);
+                        
+                        // Show pagination controls
+                        $('#pagination-controls').toggle(totalPages > 1);
+                        $('#page-info').text(`Page ${currentPage} of ${totalPages}`);
+                        $('#prev-page').prop('disabled', currentPage <= 1);
+                        $('#next-page').prop('disabled', currentPage >= totalPages);
+                        
+                        // Show all enrolled students (attendance data exists for all students for all dates)
+                        // No need to filter students - backend returns data for all enrolled students
+                        generateTableBody(pageDates, data.students, attendanceData);
+                    });
+                });
+            }
+
+            let realtimeInterval = null;
+
+            function startRealtimeUpdates() {
+                if (realtimeInterval) clearInterval(realtimeInterval);
+                realtimeInterval = setInterval(function() {
+                    var classId = $('#class-select').val();
+                    if (classId && allClassDates.length > 0) {
+                        loadAttendance(currentPage);
+                    }
+                }, 5000); // Update every 5 seconds
+            }
+
+            function stopRealtimeUpdates() {
+                if (realtimeInterval) {
+                    clearInterval(realtimeInterval);
+                    realtimeInterval = null;
+                }
+            }
+
+            // Pagination button handlers
+            $('#prev-page').click(function() {
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadAttendance(currentPage);
+                }
+            });
+
+            $('#next-page').click(function() {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadAttendance(currentPage);
+                }
+            });
+
+            // Stop realtime updates when page is unloaded
+            $(window).on('beforeunload', function() {
+                stopRealtimeUpdates();
+            });
+        });
+
+        // Export to PDF
+        $('#export-pdf').click(function() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l'); // Landscape orientation
+
+            // Hide the export button and pagination for PDF
+            $(this).hide();
+            $('#pagination-controls').hide();
+
+            html2canvas(document.querySelector('#pdf-content')).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const imgWidth = 277; // A4 height minus margins (since landscape)
+                const pageHeight = 190; // A4 width minus margins (since landscape)
+                const imgHeight = canvas.height * imgWidth / canvas.width;
+                let heightLeft = imgHeight;
+
+                let position = 10; // Top margin
+
+                doc.addImage(imgData, 'PNG', 11, position, imgWidth, imgHeight); // Left margin 10mm
+                doc.setLineWidth(0.1);
+                doc.rect(10, 10, imgWidth + 1, pageHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight + 10;
+                    doc.addPage();
+                    doc.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                    doc.setLineWidth(1);
+                    doc.rect(10, 10, imgWidth + 1, pageHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                doc.save('class_attendance.pdf');
+
+                // Show the export button and pagination again
+                $(this).show();
+                $('#pagination-controls').show();
+            });
+        });
+    </script>
+{% endblock %}

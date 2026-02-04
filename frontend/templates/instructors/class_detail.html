@@ -1,0 +1,360 @@
+{% extends "instructor_layout.html" %}
+
+{% block title %}Class Details{% endblock %}
+
+{% block extra_css %}
+<link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+<style>
+/* Search and add section */
+.search-add-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    gap: 15px;
+}
+
+.search-box {
+    flex: 1;
+    max-width: 400px;
+}
+
+.search-input-wrapper {
+    position: relative;
+}
+
+.search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+}
+
+#searchInput {
+    padding-left: 35px;
+    padding-right: 40px;
+}
+
+#clearSearch {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    border: none;
+    background: none;
+    padding: 0;
+}
+
+#clearSearch:hover {
+    color: #000;
+}
+
+/* Filter section */
+.filter-section {
+    margin-bottom: 15px;
+}
+
+#yearLevelFilter {
+    max-width: 200px;
+}
+
+/* Total count */
+.total-count-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.label-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.button-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.total-students-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.badge {
+    font-size: 0.9em;
+}
+
+/* Checkbox styling */
+input[type="checkbox"] {
+    transform: scale(1.5);
+    accent-color: black;
+}
+
+/* Modal styles */
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 400px;
+    border-radius: 8px;
+    text-align: center;
+    position: relative;
+}
+
+.close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: black;
+}
+
+.modal-buttons {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+/* Select All button styling */
+#selectAllBtn {
+    border-color: #28a745 !important;
+    color: #28a745 !important;
+}
+
+#selectAllBtn:hover {
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
+    color: white !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <a href="{{ url_for('instructors.classes') }}" class="btn btn-secondary mb-3"><i class="fas fa-arrow-left"></i> Back</a>
+            <div class="content-header">
+                <h2 class="header-title"><i class="fas fa-user-plus"></i> Register Students to {{ class.class_code }}</h2>
+            </div>
+            <div class="search-add-section">
+                <div class="search-box">
+                    <div class="search-input-wrapper">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="searchInput" class="form-control" placeholder="Search students...">
+                        <button type="button" id="clearSearch" class="btn btn-link" style="display: none;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filter-section mb-3">
+                <div class="d-flex gap-3">
+                    <select id="yearLevelFilter" class="form-control">
+                        <option value="">All Year Levels</option>
+                        <option value="1st Year">1st Year</option>
+                        <option value="2nd Year">2nd Year</option>
+                        <option value="3rd Year">3rd Year</option>
+                        <option value="4th Year">4th Year</option>
+                    </select>
+                    <select id="statusFilter" class="form-control">
+                        <option value="">All Status</option>
+                        <option value="Registered">Registered</option>
+                        <option value="Not Registered">Not Registered</option>
+                    </select>
+                </div>
+            </div>
+
+            <form id="confirmForm" action="{{ url_for('instructors.enroll_unenroll_students', class_id=class.id) }}" method="post">
+                <input type="hidden" id="confirmAction" name="action" value="">
+                <div class="total-count-container mb-3">
+                    <div class="label-group">
+                        <span class="total-students-label">Total Available Students:</span>
+                        <span class="badge bg-primary" id="studentCountBadge">{{ students_count }}</span>
+                    </div>
+                    <div class="button-group">
+                        <button type="submit" name="action" value="enroll" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus me-2"></i>Register
+                        </button>
+                        <button type="submit" name="action" value="unenroll" class="btn btn-danger btn-sm">
+                            <i class="fas fa-minus me-2"></i>Unregister
+                        </button>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="selectAllBtn">Select All</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Student ID</th>
+                                <th>Year Level</th>
+                                <th>Status</th>
+                                <th>Select</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentsTableBody">
+                            {% for item in students_with_status | sort(attribute='student.last_name') %}
+                            <tr>
+                                <td>{{ item.student.last_name }}, {{ item.student.first_name }}</td>
+                                <td>{{ item.student.id }}</td>
+                                <td>{{ item.student.year_level }}</td>
+                                <td>{{ 'Registered' if item.is_enrolled else 'Not Registered' }}</td>
+                                <td>
+                                    <input type="checkbox" name="student_ids" value="{{ item.student.id }}" id="student_{{ item.student.id }}">
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Confirm Action</h3>
+        <p id="confirmMessage"></p>
+        <div class="modal-buttons">
+            <button id="confirmBtn" class="btn btn-success">Confirm</button>
+            <button id="cancelBtn" class="btn btn-danger">Cancel</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterStudents() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const yearLevel = document.getElementById('yearLevelFilter').value;
+    const status = document.getElementById('statusFilter').value;
+    const rows = document.querySelectorAll('#studentsTableBody tr');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const name = row.cells[0].textContent.toLowerCase();
+        const studentId = row.cells[1].textContent.toLowerCase();
+        const year = row.cells[2].textContent;
+        const studentStatus = row.cells[3].textContent;
+        const matchesSearch = name.includes(searchTerm) || studentId.includes(searchTerm);
+        const matchesYear = yearLevel === '' || year === yearLevel;
+        const matchesStatus = status === '' || studentStatus === status;
+        
+        if (matchesSearch && matchesYear && matchesStatus) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    document.getElementById('studentCountBadge').textContent = visibleCount;
+    updateSelectAllButton();
+}
+
+function updateSelectAllButton() {
+    const visibleCheckboxes = document.querySelectorAll('#studentsTableBody tr:not([style*="display: none"]) input[type="checkbox"][name="student_ids"]');
+    const allChecked = visibleCheckboxes.length > 0 && Array.from(visibleCheckboxes).every(cb => cb.checked);
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    selectAllBtn.textContent = allChecked ? 'Deselect All' : 'Select All';
+}
+
+document.getElementById('searchInput').addEventListener('input', function() {
+    filterStudents();
+    document.getElementById('clearSearch').style.display = this.value ? 'block' : 'none';
+});
+
+document.getElementById('clearSearch').addEventListener('click', function() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('clearSearch').style.display = 'none';
+    filterStudents();
+});
+
+document.getElementById('yearLevelFilter').addEventListener('change', filterStudents);
+
+document.getElementById('statusFilter').addEventListener('change', filterStudents);
+
+document.getElementById('selectAllBtn').addEventListener('click', function() {
+    const visibleCheckboxes = document.querySelectorAll('#studentsTableBody tr:not([style*="display: none"]) input[type="checkbox"][name="student_ids"]');
+    const allChecked = Array.from(visibleCheckboxes).every(cb => cb.checked);
+    
+    visibleCheckboxes.forEach(cb => {
+        cb.checked = !allChecked;
+    });
+    
+    updateSelectAllButton();
+});
+
+// Handle enroll/unenroll buttons with confirmation
+document.querySelectorAll('button[name="action"]').forEach(button => {
+    button.addEventListener('click', function(e) {
+        e.preventDefault();
+        const action = this.value;
+        const checkedBoxes = document.querySelectorAll('input[type="checkbox"][name="student_ids"]:checked');
+        
+        if (checkedBoxes.length === 0) {
+            window.showWarningNotification('Please select at least one student.');
+            return;
+        }
+        
+        const actionText = action === 'enroll' ? 'enroll' : 'unenroll';
+        document.getElementById('confirmMessage').textContent = `Are you sure you want to ${actionText} ${checkedBoxes.length} selected student(s)?`;
+        document.getElementById('confirmAction').value = action;
+        document.getElementById('confirmModal').style.display = 'block';
+    });
+});
+
+// Modal confirm button
+document.getElementById('confirmBtn').addEventListener('click', function() {
+    document.getElementById('confirmForm').submit();
+});
+
+// Modal cancel and close
+document.getElementById('cancelBtn').addEventListener('click', function() {
+    document.getElementById('confirmModal').style.display = 'none';
+});
+
+document.querySelector('.close').addEventListener('click', function() {
+    document.getElementById('confirmModal').style.display = 'none';
+});
+
+window.addEventListener('click', function(e) {
+    if (e.target === document.getElementById('confirmModal')) {
+        document.getElementById('confirmModal').style.display = 'none';
+    }
+});
+
+// Initial filter and button update
+filterStudents();
+</script>
+{% endblock %}

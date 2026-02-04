@@ -1,0 +1,380 @@
+/* Schedule CSS Styles */
+
+.content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.header-title {
+    font-weight: bold;
+    color: #23272b;
+    font-size: 28px;
+    margin-bottom: 0;
+}
+
+.btn-add-class {
+    background-color: #17ce9a;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-add-class:hover {
+    background-color: #15b889;
+}
+
+.search-add-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+/* Search Section Styles (More Specific) */
+#classes-view .search-section {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+#classes-view .search-container {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+#classes-view .search-box {
+    flex: 1;
+    min-width: 300px;
+    position: relative;
+}
+
+#classes-view .search-input {
+    width: 100%;
+    padding: 12px 20px 12px 45px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background-color: #fff;
+}
+
+#classes-view .search-input:focus {
+    border-color: #3b5bdb;
+    box-shadow: 0 0 0 3px rgba(59, 91, 219, 0.1);
+    outline: none;
+}
+
+#classes-view .search-icon {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #666;
+    font-size: 1.1rem;
+}
+
+#classes-view .search-filters {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+#classes-view .filter-btn {
+    padding: 8px 16px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    background: #fff;
+    color: #666;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#classes-view .filter-btn:hover {
+    background: #f8f9fa;
+    border-color: #3b5bdb;
+    color: #3b5bdb;
+}
+
+#classes-view .filter-btn.active {
+    background: #3b5bdb;
+    border-color: #3b5bdb;
+    color: #fff;
+}
+
+#classes-view .search-results-info {
+    margin-top: 1rem;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+#classes-view .search-loading {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: none;
+}
+
+#classes-view .search-loading.active {
+    display: block;
+}
+
+#classes-view .highlight {
+    background-color: #fff3cd;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.table {
+    width: 100%;
+    margin-bottom: 1rem;
+    color: #212529;
+    background-color: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+.table thead th {
+    vertical-align: middle;
+    padding: 12px;
+    background-color: #f9f9f9;
+    border-bottom: 1px solid #e9ecef;
+    font-weight: 600;
+    color: #495057;
+    text-align: left;
+}
+
+.table tbody td {
+    padding: 16px 12px;
+    vertical-align: middle;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.action-btn {
+    background: none;
+    border: none;
+    color: #767676;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.action-btn.edit-class:hover {
+    color: #007bff;
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.action-btn.delete-class:hover {
+    color: #dc3545;
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+.clickable-row {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.clickable-row:hover {
+    background-color: rgba(23, 206, 154, 0.05);
+}
+
+/* Removed custom modal and form styles to rely on Bootstrap 5 */
+
+.schedule-builder {
+    margin-top: 15px;
+    border: 1px solid #ced4da;
+    padding: 15px;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+}
+
+.day-buttons {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+/* Hide the default checkbox */
+.day-checkbox {
+    display: none;
+}
+
+/* Style the custom label/button */
+.day-label {
+    display: inline-block;
+    padding: 8px 12px;
+    border: 1px solid #007bff;
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: #e9f2ff;
+    color: #007bff;
+    font-weight: 500;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+/* Style for checked state */
+.day-checkbox:checked + .day-label {
+    background-color: #007bff;
+    color: white;
+}
+
+/* Style for focus state (for accessibility) */
+.day-checkbox:focus + .day-label {
+    box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+    outline: none;
+}
+
+.check-icon {
+    margin-left: 5px;
+    display: none; /* Hide checkmark by default */
+}
+
+.day-checkbox:checked + .day-label .check-icon {
+    display: inline-block; /* Show checkmark when checked */
+}
+
+.day-label:hover {
+    background-color: #d4edff;
+}
+
+.day-checkbox:checked + .day-label:hover {
+    background-color: #0056b3;
+}
+
+.schedule-display {
+    margin-top: 15px;
+    padding: 10px;
+    border: 1px dashed #ced4da;
+    border-radius: 4px;
+    min-height: 40px;
+    background-color: #e9ecef;
+    color: #495057;
+}
+
+.schedule-slot {
+    display: inline-flex;
+    align-items: center;
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 3px;
+}
+
+.schedule-slot .days {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.schedule-slot .time {
+    margin-right: 5px;
+}
+
+.btn-remove-slot {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0;
+    margin-left: 5px;
+}
+
+.btn-remove-slot:hover {
+    color: #c82333;
+}
+
+.confirmation-buttons {
+    text-align: right;
+    margin-top: 20px;
+}
+
+.btn-yes {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    margin-left: 10px;
+    transition: background-color 0.2s;
+}
+
+.btn-yes:hover {
+    background-color: #c82333;
+}
+
+.btn-no {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s;
+}
+
+.btn-no:hover {
+    background-color: #5a6268;
+}
+
+.back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+@media (max-width: 768px) {
+    .content-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .btn-add-class {
+        margin-top: 10px;
+    }
+
+    .search-add-section {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    #classes-view .search-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    #classes-view .search-box {
+        min-width: 100%;
+    }
+    
+    #classes-view .search-filters {
+        width: 100%;
+        justify-content: center;
+    }
+}

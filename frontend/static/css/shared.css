@@ -1,0 +1,234 @@
+/* Modern Button Styles */
+.btn-modern {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-modern i {
+    font-size: 1rem;
+}
+
+.btn-primary-modern {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-primary-modern:hover {
+    background-color: #0056b3;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
+}
+
+.btn-secondary-modern {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary-modern:hover {
+    background-color: #5a6268;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.15);
+}
+
+.btn-danger-modern {
+    background-color: #dc3545;
+    color: white;
+}
+
+.btn-danger-modern:hover {
+    background-color: #c82333;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.15);
+}
+
+.btn-success-modern {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-success-modern:hover {
+    background-color: #218838;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.15);
+}
+
+/* Modern Modal Styles */
+.modal-modern {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1050;
+    display: none;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-modern.active {
+    display: flex;
+}
+
+.modal-dialog-modern {
+    width: 90%;
+    max-width: 600px;
+    margin: 1.75rem auto;
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    transform: translateY(0);
+    transition: transform 0.3s ease;
+}
+
+.modal-content-modern {
+    padding: 24px;
+}
+
+.modal-header-modern {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.modal-title-modern {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.modal-body-modern {
+    margin-bottom: 24px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.modal-footer-modern {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 16px;
+    border-top: 1px solid #e9ecef;
+}
+
+/* Form Styles */
+.form-group-modern {
+    margin-bottom: 1.5rem;
+}
+
+.form-label-modern {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #495057;
+    font-size: 0.95rem;
+}
+
+.form-control-modern {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+.form-control-modern:focus {
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.15);
+}
+
+.form-control-modern:disabled {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+/* Table Styles */
+.table-modern {
+    width: 100%;
+    margin-bottom: 1rem;
+    background-color: transparent;
+    border-collapse: collapse;
+}
+
+.table-modern th {
+    background-color: #f8f9fa;
+    color: #495057;
+    font-weight: 600;
+    padding: 1rem;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.table-modern td {
+    padding: 1rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.table-modern tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* Action Buttons */
+.btn-action-modern {
+    padding: 0.5rem;
+    border-radius: 6px;
+    border: none;
+    background: none;
+    color: #6c757d;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-action-modern:hover {
+    color: #007bff;
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.btn-action-modern.btn-delete:hover {
+    color: #dc3545;
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 576px) {
+    .modal-dialog-modern {
+        width: 95%;
+        margin: 10px;
+    }
+    
+    .modal-content-modern {
+        padding: 16px;
+    }
+    
+    .modal-title-modern {
+        font-size: 1.25rem;
+    }
+    
+    .modal-footer-modern {
+        flex-direction: column;
+    }
+    
+    .btn-modern {
+        width: 100%;
+    }
+    
+    .table-modern {
+        display: block;
+        overflow-x: auto;
+    }
+}

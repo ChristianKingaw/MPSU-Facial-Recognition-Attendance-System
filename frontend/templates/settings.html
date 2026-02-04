@@ -1,0 +1,1056 @@
+{% extends current_user.role == 'instructor' and "instructor_layout.html" or "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <h2 class="header-title mb-4"><i class="fas fa-cog"></i> Settings</h2>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Profile Picture</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="profile-picture-container mb-3">
+                        {% if current_user.profile_picture %}
+                            <!-- Debug info -->
+                            <!-- {{ current_user.profile_picture }} -->
+                            <img src="{{ url_for('static', filename=current_user.profile_picture) }}"
+                                 alt="{{ current_user.first_name }}"
+                                 class="profile-picture"
+                                 onerror="console.log('Error loading image:', this.src); this.onerror=null; this.src='{{ url_for('static', filename='img/default-avatar.png') }}';">
+                        {% else %}
+                            <img src="{{ url_for('static', filename='img/default-avatar.png') }}"
+                                 alt="Default"
+                                 class="profile-picture">
+                        {% endif %}
+                    </div>
+
+                    <form method="POST" action="{{ url_for('auth.update_profile_picture') }}" enctype="multipart/form-data">
+                        {{ picture_form.csrf_token(id="csrf_token_picture") }}
+                        <div class="mb-3">
+                            <label for="profile_picture" class="form-label">Choose New Picture</label>
+                            {{ picture_form.profile_picture(class="form-control") }}
+                            {% if picture_form.profile_picture.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in picture_form.profile_picture.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        {{ picture_form.submit(class="btn btn-primary", id="submit_picture") }}
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="fas fa-cogs me-2"></i>System Administration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="card mb-4">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center justify-content-center mb-2">
+                                <i class="fas fa-clock fa-lg text-dark me-3"></i>
+                                <div class="text-center">
+                                    <div class="fw-bold">System Time</div>
+                                    <div id="systemTime" class="h5 text-dark mb-1">--:--:--</div>
+                                    <div id="systemDate" class="small text-muted">--/--/----</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if current_user.role == 'admin' %}
+                    <div class="d-grid gap-3">
+                        <button type="button" class="btn btn-outline-warning" id="changeSemesterBtn" data-requires-reset="true" onclick="changeSemester()">
+                            <i class="fas fa-calendar-alt me-2"></i>Change Semester
+                        </button>
+                        <button type="button" class="btn btn-outline-success" id="changeSchoolYearBtn" data-requires-reset="true" onclick="changeSchoolYear()">
+                            <i class="fas fa-graduation-cap me-2"></i>Change School Year
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="openRoomNumbersModal()">
+                            <i class="fas fa-door-open me-2"></i>Manage Room Numbers
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" onclick="resetAttendanceAndClasses()">
+                            <i class="fas fa-redo me-2"></i>Reset Attendance and Classes
+                        </button>
+                        <div class="alert alert-warning mt-3 mb-0">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Reset attendance and classes before changing the semester or school year.
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>System administration features are only available to administrators.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <br>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Profile Information</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('auth.update_profile') }}" novalidate>
+                        {{ profile_form.hidden_tag() }}
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="first_name" class="form-label">First Name</label>
+                                    {{ profile_form.first_name(class="form-control", autocomplete="given-name") }}
+                                    {% if profile_form.first_name.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in profile_form.first_name.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    <label for="last_name" class="form-label">Last Name</label>
+                                    {{ profile_form.last_name(class="form-control", autocomplete="family-name") }}
+                                    {% if profile_form.last_name.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in profile_form.last_name.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="current_password" class="form-label">Current Password</label>
+                                    {{ profile_form.current_password(class="form-control", autocomplete="current-password") }}
+                                    {% if profile_form.current_password.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in profile_form.current_password.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    <label for="new_password" class="form-label">New Password</label>
+                                    {{ profile_form.new_password(class="form-control", autocomplete="new-password") }}
+                                    {% if profile_form.new_password.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in profile_form.new_password.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    <label for="confirm_password" class="form-label">Confirm Password</label>
+                                    {{ profile_form.confirm_password(class="form-control", autocomplete="new-password") }}
+                                    {% if profile_form.confirm_password.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in profile_form.confirm_password.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        {{ profile_form.submit(class="btn btn-primary", id="submit_profile") }}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <br>
+    
+    {% if current_user.role == 'admin' %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Face Recognition System</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid">
+                        <button type="button" class="btn btn-outline-info" onclick="openExtractEmbeddingsModal()" id="extractEmbeddingsBtn">
+                            <i class="fas fa-brain me-2"></i>Train Face
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modals -->
+<!-- Extract Embeddings Modal -->
+<div class="modal fade" id="extractEmbeddingsModal" tabindex="-1" aria-labelledby="extractEmbeddingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="extractEmbeddingsModalLabel">Extract Face Embeddings</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">
+                    Choose how you want to run the training of face. "Train All" trains all faces of Students, while "Train New" trains only new students.
+                </p>
+                <ul class="mb-0">
+                    <li><strong>Train All:</strong> full refresh (longer but ensures every faces matches the latest uploads).</li>
+                    <li><strong>Train New:</strong> faster update skips the olds students</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-outline-info" onclick="extractEmbeddings('new')">
+                    <i class="fas fa-plus-circle me-2"></i>Train New
+                </button>
+                <button type="button" class="btn btn-info" onclick="extractEmbeddings('all')">
+                    <i class="fas fa-sync-alt me-2"></i>Train All
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Semester Change Modal -->
+<div class="modal fade" id="semesterModal" tabindex="-1" aria-labelledby="semesterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="semesterModalLabel">Change Semester</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Select the new semester:</p>
+                <select class="form-select" id="semesterSelect">
+                    <option value="1st semester">1st Semester</option>
+                    <option value="2nd semester">2nd Semester</option>
+                    <option value="summer">Summer</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveSemesterBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- School Year Change Modal -->
+<div class="modal fade" id="schoolYearModal" tabindex="-1" aria-labelledby="schoolYearModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="schoolYearModalLabel">Change School Year</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Enter the new school year in the format YYYY-YYYY (must span exactly one year, e.g., 2025-2026):</p>
+                <input type="text" class="form-control" id="schoolYearInput" placeholder="2025-2026">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveSchoolYearBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Room Numbers Modal -->
+<div class="modal fade" id="roomNumbersModal" tabindex="-1" aria-labelledby="roomNumbersModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="roomNumbersModalLabel">Manage Room Numbers</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Add every room where the kiosk might run. Click the <strong>X</strong> beside a room to remove it.</p>
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" id="roomNumberInput" placeholder="Room 309" maxlength="20" aria-label="Room number">
+                    <button type="button" class="btn btn-primary" id="addRoomNumberBtn">
+                        <i class="fas fa-plus me-2"></i>Add Room
+                    </button>
+                </div>
+                <div id="roomNumberList" class="room-pill-container border rounded p-3">
+                    <div class="text-muted w-100 text-center">Loading rooms...</div>
+                </div>
+                <small class="text-muted d-block mt-2">Allowed characters: letters, numbers, spaces, or dashes (max 20). Limit 12 rooms.</small>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Attendance and Classes Modal -->
+<div class="modal fade" id="resetModal" tabindex="-1" aria-labelledby="resetModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="resetModalLabel">Reset Attendance and Classes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="resetStep1">
+                    <p class="text-danger"><strong>WARNING:</strong> This will archive all attendance records and class data as separate PDF files (student attendance and instructor attendance), then reset everything. This action cannot be undone.</p>
+                    <p>The archive ZIP file containing both PDFs will be automatically downloaded before the reset is completed.</p>
+                    <p>Are you sure you want to proceed?</p>
+                </div>
+                <div id="resetStep2" style="display: none;">
+                    <p class="text-danger"><strong>FINAL WARNING:</strong> The archive ZIP file will be downloaded and all attendance data and class information will be permanently deleted.</p>
+                    <p>Click "Download Archive & Reset" to proceed.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmResetBtn">Proceed</button>
+                <button type="button" class="btn btn-danger" id="finalResetBtn" style="display: none;">Download Archive & Reset</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border: 1px solid #000000c0 !important;
+    }
+
+    .card-header {
+        background-color: #343a40e0 !important;
+        color: white;
+    }
+
+    .profile-picture-container {
+        width: 150px;
+        height: 150px;
+        margin: 0 auto;
+        border-radius: 50%;
+        overflow: hidden;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    .profile-picture {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+.btn-outline-warning:hover {
+    background-color: white;
+    border-color: #ffc107; /* Bootstrap warning color */
+    color: #ffc107;
+}
+
+.btn-outline-warning {
+    background-color:#ffc107;
+    color:  white;
+}
+
+.btn-outline-success:hover {
+    background-color: white;
+    border-color: #198754; /* Bootstrap success color */
+    color: #198754;
+}
+
+.btn-outline-success {
+    background-color:#198754;
+    color:  white;
+}
+
+.btn-outline-primary:hover {
+    background-color: white;
+    border-color: #0d6efd;
+    color: #0d6efd;
+}
+
+.btn-outline-primary {
+    background-color:#0d6efd;
+    color:  white;
+}
+
+.btn-outline-danger:hover {
+    background-color: white;
+    border-color: #dc3545; /* Bootstrap danger color */
+    color: #dc3545;
+}
+
+.btn-outline-danger {
+    background-color:#dc3545;
+    color:  white;
+}
+
+.btn-outline-info:hover {
+    background-color: white;
+    border-color: #0dcaf0; /* Bootstrap info color */
+    color: #0dcaf0;
+}
+
+.btn-outline-info {
+    background-color:#0dcaf0;
+    color:  white;
+}
+
+.room-pill-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-height: 68px;
+    align-items: center;
+}
+
+.room-pill {
+    background-color: #343a40;
+    color: #fff;
+    border-radius: 999px;
+    padding: 0.35rem 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    font-weight: 600;
+}
+
+.room-pill-remove {
+    border: none;
+    background: transparent;
+    color: #fff;
+    margin-left: 0.4rem;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0;
+}
+
+.room-pill-remove:hover {
+    color: #ffc107;
+}
+
+.reset-locked {
+    cursor: not-allowed;
+}
+
+</style>
+
+<script>
+const ROOM_NUMBER_PATTERN = /^[A-Za-z0-9\s-]{1,20}$/;
+const ROOM_NUMBER_LIMIT = 12;
+const ROOM_NUMBER_FALLBACK = ['309', '310', '311'];
+const RESET_FLAG_KEY = 'attendanceResetCompleted';
+let systemSettingsCache = { room_numbers_list: [] };
+let managedRoomNumbers = [];
+let attendanceResetCompleted = false;
+
+try {
+    if (typeof sessionStorage !== 'undefined') {
+        attendanceResetCompleted = sessionStorage.getItem(RESET_FLAG_KEY) === 'true';
+    }
+} catch (error) {
+    console.warn('Unable to read attendance reset flag:', error);
+}
+
+function refreshSystemSettingsCache() {
+    return fetch('/admin/api/system-settings', {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+        }
+    })
+    .then(response => response.ok ? response.json() : {})
+    .then(data => {
+        if (data && typeof data === 'object') {
+            systemSettingsCache = data;
+            if (!Array.isArray(systemSettingsCache.room_numbers_list)) {
+                systemSettingsCache.room_numbers_list = getRoomNumbersFromMap(systemSettingsCache);
+            }
+        }
+        return systemSettingsCache;
+    })
+    .catch(error => {
+        console.warn('Unable to load system settings:', error);
+        return systemSettingsCache;
+    });
+}
+
+function getRoomNumbersFromMap(map) {
+    if (!map) {
+        return ROOM_NUMBER_FALLBACK.slice();
+    }
+    if (Array.isArray(map.room_numbers_list) && map.room_numbers_list.length) {
+        return map.room_numbers_list.slice();
+    }
+    const source = map.room_numbers || map.room_number || '';
+    if (!source) {
+        return ROOM_NUMBER_FALLBACK.slice();
+    }
+    const seen = new Set();
+    const cleaned = [];
+    source.split(',').forEach(room => {
+        const trimmed = room.trim();
+        if (!trimmed) {
+            return;
+        }
+        const key = trimmed.toLowerCase();
+        if (seen.has(key)) {
+            return;
+        }
+        seen.add(key);
+        cleaned.push(trimmed);
+    });
+    return cleaned.length ? cleaned : ROOM_NUMBER_FALLBACK.slice();
+}
+
+function getRoomNumbersFromCache() {
+    if (!systemSettingsCache) {
+        return ROOM_NUMBER_FALLBACK.slice();
+    }
+    const list = getRoomNumbersFromMap(systemSettingsCache);
+    return list.length ? list : ROOM_NUMBER_FALLBACK.slice();
+}
+
+function renderRoomNumberList() {
+    const container = document.getElementById('roomNumberList');
+    if (!container) {
+        return;
+    }
+    container.innerHTML = '';
+    if (!managedRoomNumbers.length) {
+        container.innerHTML = '<div class="text-muted w-100 text-center py-3">No rooms configured yet.</div>';
+        return;
+    }
+    managedRoomNumbers.forEach(room => {
+        const pill = document.createElement('div');
+        pill.className = 'room-pill';
+
+        const label = document.createElement('span');
+        label.className = 'room-pill-label';
+        label.textContent = room;
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'room-pill-remove';
+        removeBtn.setAttribute('data-room', room);
+        removeBtn.setAttribute('aria-label', `Remove ${room}`);
+        removeBtn.innerHTML = '<span aria-hidden="true">&times;</span>';
+
+        pill.appendChild(label);
+        pill.appendChild(removeBtn);
+        container.appendChild(pill);
+    });
+}
+
+function setAttendanceResetCompleted() {
+    attendanceResetCompleted = true;
+    try {
+        if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem(RESET_FLAG_KEY, 'true');
+        }
+    } catch (error) {
+        console.warn('Unable to persist reset flag:', error);
+    }
+    updateResetDependentControls();
+}
+
+function requireAttendanceReset(actionLabel) {
+    if (attendanceResetCompleted) {
+        return true;
+    }
+    const detail = actionLabel ? ` before ${actionLabel}` : '';
+    window.showWarningNotification(`Please reset attendance and classes${detail}.`);
+    return false;
+}
+
+function updateResetDependentControls() {
+    const controls = document.querySelectorAll('[data-requires-reset="true"]');
+    controls.forEach(control => {
+        const shouldLock = !attendanceResetCompleted;
+        control.classList.toggle('opacity-75', shouldLock);
+        control.classList.toggle('reset-locked', shouldLock);
+        control.setAttribute('aria-disabled', shouldLock.toString());
+        if (shouldLock) {
+            control.title = 'Reset attendance and classes first.';
+        } else {
+            control.removeAttribute('title');
+        }
+    });
+}
+
+function setRoomNumberBusy(isBusy) {
+    const addBtn = document.getElementById('addRoomNumberBtn');
+    if (!addBtn) {
+        return;
+    }
+    if (!addBtn.dataset.originalHtml) {
+        addBtn.dataset.originalHtml = addBtn.innerHTML;
+    }
+    addBtn.disabled = isBusy;
+    addBtn.innerHTML = isBusy
+        ? '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Saving...'
+        : addBtn.dataset.originalHtml;
+}
+
+function persistRoomNumbers(updatedList, successMessage) {
+    if (!updatedList.length) {
+        window.showWarningNotification('At least one room number is required.');
+        return Promise.resolve(false);
+    }
+
+    setRoomNumberBusy(true);
+    return fetch('/admin/api/system-settings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ room_numbers: updatedList })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            managedRoomNumbers = updatedList.slice();
+            systemSettingsCache.room_numbers_list = updatedList.slice();
+            systemSettingsCache.room_numbers = updatedList.join(',');
+            renderRoomNumberList();
+            if (successMessage) {
+                window.showSuccessNotification(successMessage);
+            }
+            return true;
+        }
+        window.showWarningNotification(data.message || 'Failed to update room numbers.');
+        return false;
+    })
+    .catch(error => {
+        console.error('Error updating room numbers:', error);
+        window.showWarningNotification('An error occurred while updating the room numbers.');
+        return false;
+    })
+    .finally(() => {
+        setRoomNumberBusy(false);
+    });
+}
+
+function handleAddRoomNumber(event) {
+    if (event) {
+        event.preventDefault();
+    }
+    const input = document.getElementById('roomNumberInput');
+    if (!input) {
+        return;
+    }
+    const value = input.value.trim();
+    if (!value) {
+        window.showWarningNotification('Please enter a room number.');
+        return;
+    }
+    if (!ROOM_NUMBER_PATTERN.test(value)) {
+        window.showWarningNotification('Room number can only contain letters, numbers, spaces, or dashes (max 20 characters).');
+        return;
+    }
+    if (managedRoomNumbers.some(room => room.toLowerCase() === value.toLowerCase())) {
+        window.showWarningNotification('That room has already been added.');
+        return;
+    }
+    if (managedRoomNumbers.length >= ROOM_NUMBER_LIMIT) {
+        window.showWarningNotification(`You can only store up to ${ROOM_NUMBER_LIMIT} rooms.`);
+        return;
+    }
+
+    const updatedList = managedRoomNumbers.concat(value);
+    persistRoomNumbers(updatedList, `Room ${value} added.`).then(success => {
+        if (success && input) {
+            input.value = '';
+            input.focus();
+        }
+    });
+}
+
+function handleRoomListClick(event) {
+    const removeBtn = event.target.closest('.room-pill-remove');
+    if (!removeBtn) {
+        return;
+    }
+    const roomValue = removeBtn.getAttribute('data-room');
+    if (!roomValue) {
+        return;
+    }
+    if (managedRoomNumbers.length <= 1) {
+        window.showWarningNotification('At least one room number is required.');
+        return;
+    }
+    const updatedList = managedRoomNumbers.filter(room => room.toLowerCase() !== roomValue.toLowerCase());
+    persistRoomNumbers(updatedList, `Room ${roomValue} removed.`);
+}
+
+function openRoomNumbersModal() {
+    refreshSystemSettingsCache().then(() => {
+        managedRoomNumbers = getRoomNumbersFromCache();
+        renderRoomNumberList();
+        const modalElement = document.getElementById('roomNumbersModal');
+        if (!modalElement) {
+            return;
+        }
+        const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+        modal.show();
+        setTimeout(() => {
+            const input = document.getElementById('roomNumberInput');
+            if (input) {
+                input.focus();
+            }
+        }, 200);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const profileForm = document.querySelector('form[action="{{ url_for('auth.update_profile') }}"]');
+
+    refreshSystemSettingsCache().then(() => {
+        managedRoomNumbers = getRoomNumbersFromCache();
+        renderRoomNumberList();
+    });
+
+    const addRoomBtn = document.getElementById('addRoomNumberBtn');
+    if (addRoomBtn) {
+        addRoomBtn.addEventListener('click', handleAddRoomNumber);
+    }
+
+    const roomInput = document.getElementById('roomNumberInput');
+    if (roomInput) {
+        roomInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                handleAddRoomNumber(event);
+            }
+        });
+    }
+
+    const roomList = document.getElementById('roomNumberList');
+    if (roomList) {
+        roomList.addEventListener('click', handleRoomListClick);
+    }
+
+    if (profileForm) {
+        profileForm.addEventListener('submit', function(e) {
+            e.preventDefault(); // Prevent default form submission
+
+            const newPassword = document.getElementById('new_password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+
+            // If new password is provided, check if confirm password matches
+            if (newPassword && newPassword !== confirmPassword) {
+                window.showWarningNotification('Passwords do not match.');
+                return;
+            }
+
+            // Collect form data
+            const formData = new FormData(profileForm);
+            const data = {};
+            for (let [key, value] of formData.entries()) {
+                data[key] = value;
+            }
+
+            console.log('Sending data:', data); // Debug log
+
+            // Send API request
+            fetch('{{ url_for('auth.update_profile') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.showSuccessNotification(data.message);
+                    // Optionally reload the page or update UI
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                } else {
+                    if (data.errors) {
+                        // Display field errors
+                        for (let field in data.errors) {
+                            const input = document.getElementById(field);
+                            if (input) {
+                                input.classList.add('is-invalid');
+                                let feedback = input.nextElementSibling;
+                                if (!feedback || !feedback.classList.contains('invalid-feedback')) {
+                                    feedback = document.createElement('div');
+                                    feedback.className = 'invalid-feedback d-block';
+                                    input.parentNode.insertBefore(feedback, input.nextSibling);
+                                }
+                                feedback.textContent = data.errors[field].join(', ');
+                            }
+                        }
+                    } else {
+                        window.showWarningNotification(data.message);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                window.showWarningNotification('An error occurred while updating profile.');
+            });
+        });
+    }
+
+    updateResetDependentControls();
+});
+
+// System Administration Functions
+function updateSystemTime() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString();
+    const dateString = now.toLocaleDateString();
+    document.getElementById('systemTime').textContent = timeString;
+    document.getElementById('systemDate').textContent = dateString;
+}
+
+function changeSemester() {
+    if (!requireAttendanceReset('changing the semester')) {
+        return;
+    }
+    const modal = new bootstrap.Modal(document.getElementById('semesterModal'));
+    modal.show();
+}
+
+function changeSchoolYear() {
+    if (!requireAttendanceReset('changing the school year')) {
+        return;
+    }
+    const currentYear = new Date().getFullYear();
+    document.getElementById('schoolYearInput').value = currentYear + '-' + (currentYear + 1);
+    const modal = new bootstrap.Modal(document.getElementById('schoolYearModal'));
+    modal.show();
+}
+
+function resetAttendanceAndClasses() {
+    document.getElementById('resetStep1').style.display = 'block';
+    document.getElementById('resetStep2').style.display = 'none';
+    document.getElementById('confirmResetBtn').style.display = 'inline-block';
+    document.getElementById('finalResetBtn').style.display = 'none';
+    const modal = new bootstrap.Modal(document.getElementById('resetModal'));
+    modal.show();
+}
+
+// Event listeners for modal buttons
+document.getElementById('saveSemesterBtn').addEventListener('click', function() {
+    if (!requireAttendanceReset('changing the semester')) {
+        const modalInstance = bootstrap.Modal.getInstance(document.getElementById('semesterModal'));
+        if (modalInstance) {
+            modalInstance.hide();
+        }
+        return;
+    }
+    const selectedSemester = document.getElementById('semesterSelect').value;
+    fetch('/admin/api/system-settings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ semester: selectedSemester })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.showSuccessNotification('Semester changed to: ' + selectedSemester);
+            bootstrap.Modal.getInstance(document.getElementById('semesterModal')).hide();
+        } else {
+            window.showWarningNotification(data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        window.showWarningNotification('An error occurred while updating semester.');
+    });
+});
+
+document.getElementById('saveSchoolYearBtn').addEventListener('click', function() {
+    if (!requireAttendanceReset('changing the school year')) {
+        const modalInstance = bootstrap.Modal.getInstance(document.getElementById('schoolYearModal'));
+        if (modalInstance) {
+            modalInstance.hide();
+        }
+        return;
+    }
+    const schoolYear = document.getElementById('schoolYearInput').value.trim();
+    
+    // Validate school year format (YYYY-YYYY) with 1-year gap
+    const yearPattern = /^(\d{4})-(\d{4})$/;
+    const match = schoolYear.match(yearPattern);
+    
+    if (!match) {
+        window.showWarningNotification('Please enter a valid school year in the format YYYY-YYYY (e.g., 2025-2026).');
+        return;
+    }
+    
+    const startYear = parseInt(match[1]);
+    const endYear = parseInt(match[2]);
+    
+    if (endYear !== startYear + 1) {
+        window.showWarningNotification('School year must span exactly one year (e.g., 2025-2026, not 2025-2027).');
+        return;
+    }
+    
+    if (startYear < 2000 || startYear > 2100 || endYear < 2000 || endYear > 2100) {
+        window.showWarningNotification('Please enter valid years between 2000 and 2100.');
+        return;
+    }
+    
+    fetch('/admin/api/system-settings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ school_year: schoolYear })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.showSuccessNotification('School Year changed to: ' + schoolYear);
+            bootstrap.Modal.getInstance(document.getElementById('schoolYearModal')).hide();
+        } else {
+            window.showWarningNotification(data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        window.showWarningNotification('An error occurred while updating school year.');
+    });
+});
+
+document.getElementById('confirmResetBtn').addEventListener('click', function() {
+    document.getElementById('resetStep1').style.display = 'none';
+    document.getElementById('resetStep2').style.display = 'block';
+    document.getElementById('confirmResetBtn').style.display = 'none';
+    document.getElementById('finalResetBtn').style.display = 'inline-block';
+});
+
+document.getElementById('finalResetBtn').addEventListener('click', function() {
+    fetch('/admin/api/reset-attendance-classes', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            const contentType = response.headers.get('content-type') || '';
+            // If response is successful and is a ZIP file, download it
+            if (contentType.includes('application/zip')) {
+                return response.blob().then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    const filename = response.headers.get('content-disposition')?.split('filename=')[1]?.replace(/"/g, '') || 'attendance_archive.zip';
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    window.showSuccessNotification('Archive downloaded. Attendance and Classes reset successfully.');
+                    setAttendanceResetCompleted();
+                    return { success: true, messageShown: true };
+                });
+            } else {
+                return response.json();
+            }
+        } else {
+            return response.json().then(data => {
+                throw new Error(data.message || 'Failed to reset');
+            });
+        }
+    })
+    .then(data => {
+        if (data && data.success) {
+            if (!data.messageShown) {
+                window.showSuccessNotification(data.message || 'Attendance and Classes reset successfully.');
+            }
+            setAttendanceResetCompleted();
+        } else if (data && !data.success) {
+            window.showWarningNotification('Failed to reset: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        window.showWarningNotification('An error occurred while resetting data: ' + error.message);
+    });
+    bootstrap.Modal.getInstance(document.getElementById('resetModal')).hide();
+});
+
+function openExtractEmbeddingsModal() {
+    const modalElement = document.getElementById('extractEmbeddingsModal');
+    if (!modalElement) {
+        extractEmbeddings('all');
+        return;
+    }
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
+}
+
+function extractEmbeddings(mode = 'all') {
+    const btn = document.getElementById('extractEmbeddingsBtn');
+    if (!btn) {
+        return;
+    }
+
+    const modalElement = document.getElementById('extractEmbeddingsModal');
+    const modalInstance = modalElement ? bootstrap.Modal.getInstance(modalElement) : null;
+    if (modalInstance) {
+        modalInstance.hide();
+    }
+
+    const originalText = btn.innerHTML;
+    const modeLabel = mode === 'new' ? 'New' : 'All';
+
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Extracting ${modeLabel} Embeddings...`;
+    
+    fetch('/admin/api/extract-embeddings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ mode })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.showSuccessNotification(data.message || 'Face embeddings extracted successfully!');
+        } else {
+            window.showWarningNotification('Failed to extract embeddings: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        window.showWarningNotification('An error occurred while extracting embeddings: ' + error.message);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
+
+// Initialize system time display
+document.addEventListener('DOMContentLoaded', function() {
+    // Update time immediately and then every second
+    updateSystemTime();
+    setInterval(updateSystemTime, 1000);
+});
+</script>
+{% endblock %}

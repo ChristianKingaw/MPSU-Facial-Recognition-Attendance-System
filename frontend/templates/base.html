@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Pass - {% block title %}Attendance System{% endblock %}</title>
+    <!-- Bootstrap CSS - Local -->
+    <link href="{{ url_for('static', filename='bootstrap/bootstrap-5.3.8-dist/css/bootstrap.min.css') }}" rel="stylesheet">
+    <!-- Font Awesome - Local -->
+    <link href="{{ url_for('static', filename='fontawesome/css/all.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/sidebar.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/shared.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="{% if current_user.is_authenticated and current_user.role == 'admin' %}admin-role{% endif %}">
+    {% if current_user.is_authenticated %}
+    <button id="mobile-toggle" class="mobile-toggle">
+        <i class="fas fa-bars"></i>
+    </button>
+    
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">Attendance Management</div>
+        <div class="sidebar-menu">
+            {% if current_user.role == 'admin' %}
+                <!-- Admin Menu Items -->
+                <a href="{{ url_for('students.enroll') }}" class="menu-item {% if request.endpoint == 'students.enroll' %}active{% endif %}">Students</a>
+                <a href="{{ url_for('instructors.manage') }}" class="menu-item {% if request.endpoint == 'instructors.manage' %}active{% endif %}">Instructors</a>
+                <a href="{{ url_for('courses.manage') }}" class="menu-item {% if request.endpoint == 'courses.manage' %}active{% endif %}">Courses</a>
+                <a href="{{ url_for('classes.schedule') }}" class="menu-item {% if request.endpoint == 'classes.schedule' %}active{% endif %}">Classes</a>
+                <a href="{{ url_for('admin.instructor_attendance') }}" class="menu-item {% if request.endpoint == 'admin.instructor_attendance' %}active{% endif %}">Attendance</a>
+            {% else %}
+                <!-- Instructor Menu Items -->
+            {% endif %}
+            <!-- Common Menu Items - Profile moved to user section -->
+        </div>
+        <div class="user-section">
+            <div class="user-profile-link {% if request.endpoint == 'auth.settings' %}active{% endif %}">
+                {% if current_user.profile_picture %}
+                    <img src="{{ url_for('static', filename=current_user.profile_picture) }}" alt="User" class="user-avatar">
+                {% else %}
+                    <img src="{{ url_for('static', filename='img/default-avatar.png') }}" alt="User" class="user-avatar">
+                {% endif %}
+                <div class="user-info">
+                    <p class="user-name">{{ current_user.first_name }} {{ current_user.last_name }}</p>
+                    <p class="user-role">{{ current_user.role|title }}</p>
+                </div>
+            </div>
+        </div>
+        {% if current_user.role == 'admin' %}
+        <a href="{{ url_for('auth.settings') }}" class="settings-btn"><i class="fas fa-cog"></i> Settings</a>
+        {% endif %}
+        <a href="/auth/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+    {% endif %}
+    
+    <!-- Main Content -->
+    <div class="{% if current_user.is_authenticated %}main-content{% endif %}">
+        <div id="alertContainer"></div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div id="flashMessages" style="display: none;">
+              {% for category, message in messages %}
+                <div data-category="{{ category }}" data-message="{{ message }}"></div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Bootstrap JS Bundle - Local -->
+    <script src="{{ url_for('static', filename='bootstrap/bootstrap-5.3.8-dist/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/floating-notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+    
+    <!-- Handle flash messages as floating notifications -->
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const flashContainer = document.getElementById('flashMessages');
+        if (flashContainer) {
+          const messages = flashContainer.querySelectorAll('div[data-message]');
+          messages.forEach(div => {
+            const category = div.getAttribute('data-category');
+            const message = div.getAttribute('data-message');
+            if (category === 'success') {
+              window.showSuccessNotification(message);
+            } else if (category === 'danger') {
+              window.showErrorNotification(message);
+            } else if (category === 'warning') {
+              window.showWarningNotification(message);
+            } else if (category === 'info') {
+              window.showInfoNotification(message);
+            } else {
+              window.showInfoNotification(message);
+            }
+          });
+        }
+      });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

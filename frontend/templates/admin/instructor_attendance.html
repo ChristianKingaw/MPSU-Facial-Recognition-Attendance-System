@@ -1,0 +1,413 @@
+{% extends "base.html" %}
+
+{% block title %}Instructor Attendance Management{% endblock %}
+
+{% block content %}
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: white;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        h1 {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 32px;
+        }
+        .header-cards {
+            display: flex;
+            gap: 48px;
+            margin-bottom: 32px;
+        }
+        .card {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 16px;
+            flex: 1;
+        }
+        .card-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .card-value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .semester-year {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .controls {
+            margin-bottom: 32px;
+        }
+        .select-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        label {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        select {
+            width: 200px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .legend {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .legend-items {
+            display: flex;
+            gap: 16px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-box {
+            width: 40px;
+            height: 40px;
+            border: 2px solid;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .present { background-color: #d4edda; color: #0d4d1a; border-color: #a8d5a2; }
+        .late { background-color: #fff3cd; color: #5a4a0a; border-color: #f5e6a3; }
+        .absent { background-color: #f8d7da; color: #4d0f15; border-color: #e8aeb1; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #ddd;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .attendance-btn {
+            width: 40px;
+            height: 40px;
+            border: 2px solid;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            color: black;
+            margin: 0 auto;
+        }
+        .attendance-btn.present {
+            background-color: #d4edda;
+            color: #0d4d1a;
+            border-color: #a8d5a2;
+        }
+        .attendance-btn.late {
+            background-color: #fff3cd;
+            color: #5a4a0a;
+            border-color: #f5e6a3;
+        }
+        .attendance-btn.absent {
+            background-color: #f8d7da;
+            color: #4d0f15;
+            border-color: #e8aeb1;
+        }
+        .attendance-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+            pointer-events: none;
+            user-select: none;
+        }
+        .time-input {
+            width: 120px;
+            padding: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+        <div id="pdf-content">
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h2 class="header-title mb-0"><i class="fas fa-user-check"></i> Class Attendance</h2>
+            <div class="header-cards">
+                <div class="semester-year">Semester: <u>{{ current_semester }}</u></div>
+                <div class="semester-year">School Year: <u>{{ current_school_year }}</u></div>
+            </div>
+        </div>
+    </div>
+</div>
+        <div class="controls">
+            <div class="select-group">
+                <label for="class-select">Class</label>
+                <select id="class-select" style="width: 300px;">
+                    <option>Select a class</option>
+                </select>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <div class="select-group">
+                    <label for="course-display">Course</label>
+                    <input type="text" id="course-display" readonly>
+                </div>
+                <div class="select-group">
+                    <label for="schedule-display">Schedule</label>
+                    <input type="text" id="schedule-display" readonly>
+                </div>
+                <div class="select-group">
+                    <label for="instructor-display">Instructor</label>
+                    <input type="text" id="instructor-display" readonly>
+                </div>
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-items">
+                <div class="legend-item">
+                    <div class="status-box present">P</div>
+                    <span>Present</span>
+                </div>
+   
+                <div class="legend-item">
+                    <div class="status-box absent">A</div>
+                    <span>Absent</span>
+                </div>
+            </div>
+            <button id="export-pdf">Export to PDF</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Time In</th>
+                    <th>Time Out</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
+    <script src = "{{ url_for('static', filename='js/html2canvas.min.js') }}"></script>
+    <script src = "{{ url_for('static', filename='js/jspdf.umd.min.js') }}"></script>
+    <script>
+        function convertTo24Hour(time12h) {
+            if (!time12h) return '';
+            const [time, modifier] = time12h.split(' ');
+            let [hours, minutes] = time.split(':');
+            if (hours === '12') {
+                hours = '00';
+            }
+            if (modifier === 'PM') {
+                hours = parseInt(hours, 10) + 12;
+            }
+            return hours + ':' + minutes;
+        }
+
+        $(document).ready(function() {
+            // Fetch classes and populate select
+            $.get('/classes/api/list', function(data) {
+                $('#class-select').empty();
+                $('#class-select').append('<option value="">Select a class</option>');
+                data.forEach(function(cls) {
+                    $('#class-select').append('<option value="' + cls.id + '">' + cls.classCode + ' - ' + cls.courseName + '</option>');
+                });
+            });
+
+            // When class is selected, fetch attendance
+            $('#class-select').change(function() {
+                var classId = $(this).val();
+                if (classId) {
+                    // Fetch class details and set related displays
+                    $.get('/classes/api/' + classId, function(cls) {
+                        $('#course-display').val(cls.courseName);
+                        $('#schedule-display').val(cls.schedule);
+                        $('#instructor-display').val(cls.instructorName);
+
+                        // Clear the table and load attendance
+                        var tbody = $('table tbody');
+                        tbody.empty();
+                        loadAttendance();
+                    });
+                } else {
+                    // Clear the displays when no class is selected
+                    $('#course-display').val('');
+                    $('#schedule-display').val('');
+                    $('#instructor-display').val('');
+                    // Clear the table
+                    $('table tbody').empty();
+                }
+            });
+
+            function loadAttendance() {
+                var classId = $('#class-select').val();
+                if (!classId) return;
+                $.get('/admin/api/attendance/instructor/get', {classId: classId}, function(data) {
+                    // data should be array of {date, status, time_in, time_out}
+                    var tbody = $('table tbody');
+                    tbody.empty();
+                    
+                    if (data.length === 0) {
+                        tbody.append('<tr><td colspan="3" style="text-align: center;">No attendance records found</td></tr>');
+                        return;
+                    }
+                    
+                    data.forEach(function(att) {
+                        var normalizedStatus = (att.status || '').toString().trim().toUpperCase();
+                        var statusKey = 'ABSENT';
+                        if (normalizedStatus === 'PRESENT') {
+                            statusKey = 'PRESENT';
+                        } else if (normalizedStatus === 'LATE') {
+                            statusKey = 'LATE';
+                        }
+                        var statusCharMap = { 'PRESENT': 'P', 'LATE': 'L', 'ABSENT': 'A' };
+                        var statusClassMap = { 'PRESENT': 'present', 'LATE': 'late', 'ABSENT': 'absent' };
+                        var statusChar = statusCharMap[statusKey];
+                        var statusClass = statusClassMap[statusKey];
+                        var row = '<tr>' +
+                            '<td>' + att.date + '</td>' +
+                            '<td style="text-align: center;"><button class="attendance-btn ' + statusClass + '" disabled>' + statusChar + '</button></td>' +
+                            '<td style="text-align: center;"><input type="text" class="time-input" value="' + (att.time_in || '') + '" placeholder="In" disabled></td>' +
+                            '<td style="text-align: center;"><input type="text" class="time-input" value="' + (att.time_out || '') + '" placeholder="Out" disabled></td>' +
+                            '</tr>';
+                        tbody.append(row);
+                    });
+                });
+            }
+
+            // Real-time updates for attendance buttons
+            $(document).on('click', '.attendance-btn', function() {
+                if (!$('#class-select').val()) return; // Only if class selected
+                var statuses = ['P', 'L', 'A'];
+                var statusMap = {'P': 'Present', 'L': 'Late', 'A': 'Absent'};
+                var currentText = $(this).text();
+                var currentIndex = statuses.indexOf(currentText);
+                var nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % 3;
+                var next = statuses[nextIndex];
+                $(this).text(next);
+                $(this).removeClass('present late absent');
+                if (next === 'P') $(this).addClass('present');
+                else if (next === 'L') $(this).addClass('late');
+                else if (next === 'A') $(this).addClass('absent');
+                // Save to backend
+                var row = $(this).closest('tr');
+                var instructorName = $('#instructor-display').val();
+                var date = row.find('td').eq(0).text();
+                $.post('/attendance/api/instructor/update', {
+                    classId: $('#class-select').val(),
+                    instructorName: instructorName,
+                    date: date,
+                    status: statusMap[next]
+                });
+            });
+
+            // Real-time updates for time inputs
+            $(document).on('change', '.time-input', function() {
+                if (!$('#class-select').val()) return; // Only if class selected
+                var row = $(this).closest('tr');
+                var instructorName = $('#instructor-display').val();
+                var date = row.find('td').eq(0).text();
+                var timeIn = convertTo24Hour(row.find('td').eq(2).find('.time-input').val());
+                $.post('/attendance/api/instructor/update', {
+                    classId: $('#class-select').val(),
+                    instructorName: instructorName,
+                    date: date,
+                    timeIn: timeIn
+                });
+            });
+        });
+
+        // Export to PDF
+        $('#export-pdf').click(function() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l'); // Landscape orientation
+
+            // Hide the export button for PDF
+            $(this).hide();
+
+            html2canvas(document.querySelector('#pdf-content')).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const imgWidth = 277; // A4 height minus margins (since landscape)
+                const pageHeight = 190; // A4 width minus margins (since landscape)
+                const imgHeight = canvas.height * imgWidth / canvas.width;
+                let heightLeft = imgHeight;
+
+                let position = 10; // Top margin
+
+                doc.addImage(imgData, 'PNG', 11, position, imgWidth, imgHeight); // Left margin 10mm
+                doc.setLineWidth(0.1);
+                doc.rect(10, 10, imgWidth + 1, pageHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight + 10;
+                    doc.addPage();
+                    doc.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                    doc.setLineWidth(1);
+                    doc.rect(10, 10, imgWidth + 1, pageHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                doc.save('instructor_attendance.pdf');
+
+                // Show the export button again
+                $(this).show();
+            });
+        });
+    </script>
+</body>
+{% endblock %}

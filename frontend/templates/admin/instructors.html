@@ -1,0 +1,1531 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Instructors{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modals.css') }}">
+<style>
+/* Override custom action button styles to allow Bootstrap styling */
+.btn.btn-sm.btn-primary.edit-instructor,
+.btn.btn-sm.btn-danger.delete-instructor,
+.btn.btn-sm.btn-primary.capture-image,
+.btn.btn-sm.btn-secondary.view-photos {
+    width: auto !important;
+    height: auto !important;
+    border-radius: 0.375rem !important;
+    margin: 0 2px !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.875rem !important;
+    background: var(--bs-btn-bg) !important;
+    border: var(--bs-btn-border-width) solid var(--bs-btn-border-color) !important;
+    color: var(--bs-btn-color) !important;
+    display: inline-block !important;
+    white-space: nowrap !important;
+}
+
+/* Action buttons container */
+.action-buttons-container {
+    display: flex !important;
+    gap: 4px !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    min-width: 250px !important;
+}
+
+/* Specific Bootstrap colors to override custom styles */
+.btn.btn-sm.btn-primary.edit-instructor {
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+    color: #fff !important;
+}
+
+.btn.btn-sm.btn-danger.delete-instructor {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    color: #fff !important;
+}
+
+.btn.btn-sm.btn-primary.capture-image {
+    background-color: #0ccaf0 !important;
+    border-color: #0ccaf0 !important;
+    color: #000 !important;
+}
+
+.btn.btn-sm.btn-secondary.view-photos {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    color: #fff !important;
+}
+
+/* Hover states */
+.btn.btn-sm.btn-primary.edit-instructor:hover {
+    background-color: #0b5ed7 !important;
+    border-color: #0a58ca !important;
+    color: #fff !important;
+}
+
+.btn.btn-sm.btn-danger.delete-instructor:hover {
+    background-color: #bb2d3b !important;
+    border-color: #b02a37 !important;
+    color: #fff !important;
+}
+
+.btn.btn-sm.btn-primary.capture-image:hover {
+    background-color: #31d2f2 !important;
+    border-color: #25cff2 !important;
+    color: #000 !important;
+}
+
+.btn.btn-sm.btn-secondary.view-photos:hover {
+    background-color: #5a6268 !important;
+    border-color: #545b62 !important;
+    color: #fff !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h2 class="header-title"><i class="fas fa-chalkboard-teacher"></i> Manage Instructors</h2>
+</div>
+
+<div class="search-add-section">
+    <div class="search-box">
+        <div class="search-input-wrapper">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" id="searchInput" class="form-control" placeholder="Search instructors...">
+            <button type="button" id="clearSearch" class="btn btn-link">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+    
+    <button type="button" class="btn btn-primary" id="btnAddInstructor">
+        <i class="fas fa-plus me-2"></i>Add Instructor
+    </button>
+</div>
+
+<div class="total-count-container mb-3">
+    <span class="total-students-label">Total Instructors:</span>
+    <span class="badge bg-primary" id="instructorCountBadge">{{ instructors|length }}</span>
+</div>
+<div class="table-responsive">
+    <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>ID</th>
+                                    <th>Username</th>
+                                    <th>Department</th>
+                                    <th>Classes</th>
+                                    <th>Face Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for instructor in instructors %}
+                                <tr>
+                                    <td>{{ instructor.last_name }}, {{ instructor.first_name }}{% if instructor.middle_name %} {{ instructor.middle_name }}{% endif %}</td>
+                                    <td>{{ instructor.id }}</td>
+                                    <td>{{ instructor.username }}</td>
+                                    <td>{{ instructor.department or 'Not specified' }}</td>
+                                    <td>{{ instructor.classes|length }}</td>
+                                    <td class="{% if instructor.has_face_images %}text-success{% else %}text-danger{% endif %}"><strong>{% if instructor.has_face_images %}Captured{% else %}Not Captured{% endif %}</strong></td>
+                                    <td>
+                                        <div class="action-buttons-container">
+                                            <button type="button" class="btn btn-sm btn-primary edit-instructor" data-id="{{ instructor.id }}">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-danger delete-instructor" data-id="{{ instructor.id }}" data-name="{{ instructor.last_name }}, {{ instructor.first_name }}{% if instructor.middle_name %} {{ instructor.middle_name }}{% endif %}">
+                                                <i class="fas fa-trash"></i> Delete
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-primary capture-image" data-id="{{ instructor.id }}" data-name="{{ instructor.last_name }}, {{ instructor.first_name }}{% if instructor.middle_name %} {{ instructor.middle_name }}{% endif %}">
+                                                <i class="fas fa-camera-retro"></i> Capture
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-secondary view-photos" data-id="{{ instructor.id }}" data-name="{{ instructor.last_name }}, {{ instructor.first_name }}{% if instructor.middle_name %} {{ instructor.middle_name }}{% endif %}">
+                                                <i class="fas fa-eye"></i> View
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% if instructors|length == 0 %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">No instructors found. Add an instructor to get started.</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+
+<!-- Add Instructor Modal -->
+<div class="modal fade" id="addInstructorModal" tabindex="-1" aria-labelledby="addInstructorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addInstructorModalLabel">Add New Instructor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addInstructorForm" method="POST" action="{{ url_for('instructors.add') }}">
+                    <div class="mb-3">
+                        <label for="instructor_id" class="form-label">Instructor ID</label>
+                        <input type="text" class="form-control" id="instructor_id" name="instructor_id" placeholder="e.g., 2200840" pattern="[0-9]+" title="Please enter numbers only" required>
+                        <small class="form-text text-muted">Format: 7-digit number (e.g., 2200840)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required autocomplete="username">
+                    </div>
+                    <!-- Email removed completely -->
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="first_name" class="form-label">First Name</label>
+                            <input type="text" class="form-control" id="first_name" name="first_name" required autocomplete="given-name">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="middle_name" class="form-label">Middle Name</label>
+                            <input type="text" class="form-control" id="middle_name" name="middle_name" autocomplete="additional-name">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="last_name" class="form-label">Last Name</label>
+                            <input type="text" class="form-control" id="last_name" name="last_name" required autocomplete="family-name">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="department" class="form-label">Department</label>
+                        <select class="form-control" id="department" name="department">
+                            <option value="">Select Department</option>
+                            <option value="BSIT">Bachelor of Science in Information Technology</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required autocomplete="new-password">
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">Confirm Password</label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required autocomplete="new-password">
+                    </div>
+                    <input type="hidden" name="role" value="instructor">
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Instructor</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Instructor Modal -->
+<div class="modal fade" id="editInstructorModal" tabindex="-1" aria-labelledby="editInstructorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editInstructorModalLabel">Edit Instructor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editInstructorForm" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" id="edit_instructor_id" name="instructor_id">
+                    <div class="mb-3">
+                        <label for="edit_id_display" class="form-label">Instructor ID</label>
+                        <input type="text" class="form-control" id="edit_id_display" readonly disabled>
+                        <small class="form-text text-muted">ID cannot be changed</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="edit_username" name="username" required autocomplete="username">
+                    </div>
+                    <!-- Email removed completely -->
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="edit_first_name" class="form-label">First Name</label>
+                            <input type="text" class="form-control" id="edit_first_name" name="first_name" required autocomplete="given-name">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="edit_middle_name" class="form-label">Middle Name</label>
+                            <input type="text" class="form-control" id="edit_middle_name" name="middle_name" autocomplete="additional-name">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="edit_last_name" class="form-label">Last Name</label>
+                            <input type="text" class="form-control" id="edit_last_name" name="last_name" required autocomplete="family-name">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_department" class="form-label">Department</label>
+                        <select class="form-control" id="edit_department" name="department">
+                            <option value="">Select Department</option>
+                            <option value="BSIT">Bachelor of Science in Information Technology</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_password" class="form-label">New Password <small class="text-muted">(leave blank to keep current password)</small></label>
+                        <input type="password" class="form-control" id="edit_password" name="password" autocomplete="new-password">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_confirm_password" class="form-label">Confirm New Password</label>
+                        <input type="password" class="form-control" id="edit_confirm_password" name="confirm_password" autocomplete="new-password">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmDeleteModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="deleteModalBody">
+                <!-- Dynamic content will be injected here by JS -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="POST">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Image Modal -->
+<div class="modal fade" id="uploadImageModal" tabindex="-1" aria-labelledby="uploadImageModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="uploadImageModalLabel">Instructor Facial Recognition Images</h3>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h4 class="pictures-title mb-3" id="instructor-name-display"></h4>
+                <p class="mb-3 text-muted">Upload clear frontal face images for facial recognition attendance. Multiple angles improve recognition accuracy.</p>
+                
+                <div class="pictures-preview" id="current-pictures-container">
+                    <div class="picture-container picture-placeholder">
+                        <i class="fas fa-camera fa-2x mb-2"></i>
+                        <span>No images yet</span>
+                    </div>
+                </div>
+                
+                <form id="imageUploadForm" enctype="multipart/form-data">
+                    <input type="hidden" id="instructor-id-for-image">
+                    <div class="image-upload-container">
+                        <div class="form-group mb-3">
+                            <label for="instructor-image-upload" class="form-label">
+                                <i class="fas fa-cloud-upload-alt me-2"></i>Upload Face Images
+                            </label>
+                            <input type="file" class="form-control" id="instructor-image-upload" name="image" accept="image/jpeg,image/png" multiple required>
+                            <div class="form-text mt-2">
+                                <small><i class="fas fa-info-circle me-1"></i>Supported formats: JPG, JPEG, PNG</small><br>
+                                <small><i class="fas fa-info-circle me-1"></i>Clear, well-lit frontal face photos work best</small><br>
+                                <small><i class="fas fa-info-circle me-1"></i>Max file size: 5MB per image</small><br>
+                                <small><i class="fas fa-info-circle me-1"></i>Maximum: 20 images total per instructor</small><br>
+                                <small><i class="fas fa-info-circle me-1"></i>You can select multiple images at once</small>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-save" id="uploadButton">
+                            <i class="fas fa-upload me-2"></i>Upload Images
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+            <script>
+            // Client-side guard for instructor uploads: max 20 images
+            document.addEventListener('DOMContentLoaded', function () {
+                const fileInput = document.getElementById('instructor-image-upload');
+                const form = document.getElementById('imageUploadForm');
+                const MAX_IMAGES = 20;
+
+                if (fileInput) {
+                    fileInput.addEventListener('change', function (e) {
+                        if (fileInput.files && fileInput.files.length > MAX_IMAGES) {
+                            window.showWarningNotification(`You can upload a maximum of ${MAX_IMAGES} images at once.`);
+                            fileInput.value = '';
+                        }
+                    });
+                }
+
+                if (form) {
+                    form.addEventListener('submit', function (e) {
+                        const files = fileInput.files ? fileInput.files.length : 0;
+                        if (files > MAX_IMAGES) {
+                            e.preventDefault();
+                            window.showWarningNotification(`You can upload a maximum of ${MAX_IMAGES} images.`);
+                        }
+                    });
+                }
+            });
+            </script>
+
+<!-- Camera Modal -->
+<div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cameraModalLabel">Capture Facial Recognition Images</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h4 class="camera-title mb-3" id="camera-instructor-name-display"></h4>
+                <p class="mb-3 text-muted">Capture multiple photos from different angles and lighting conditions for better recognition. Aim for 3-5 clear photos.</p>
+
+                <div class="camera-container">
+                    <video id="camera-video" autoplay playsinline style="width: 100%; max-width: 400px; border: 2px solid #ddd; border-radius: 8px;"></video>
+                    <canvas id="camera-canvas" style="display: none;"></canvas>
+                </div>
+
+                <div class="camera-controls mt-3">
+                    <button type="button" class="btn btn-success" id="capture-btn">
+                        <i class="fas fa-camera me-2"></i>Capture Photo
+                    </button>
+                    <button type="button" class="btn btn-success" id="upload-all-btn" style="display: none;">
+                        <i class="fas fa-upload me-2"></i>Upload All (<span id="photo-count">0</span>)
+                    </button>
+                </div>
+
+                <div class="captured-photos mt-3" id="captured-photos-container" style="display: none;">
+                    <h6>Captured Photos:</h6>
+                    <div id="captured-photos-grid" class="d-flex flex-wrap gap-2"></div>
+                </div>
+
+                <input type="hidden" id="camera-instructor-id">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Photos Modal -->
+<div class="modal fade" id="viewPhotosModal" tabindex="-1" aria-labelledby="viewPhotosModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewPhotosModalLabel">Instructor Facial Recognition Photos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h4 class="mb-3" id="view-instructor-name-display"></h4>
+                <div id="view-photos-container">
+                    <!-- Photos will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Camera modal styles */
+.photo-thumbnail {
+    position: relative;
+    display: inline-block;
+    margin: 5px;
+}
+
+.thumbnail-img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+}
+
+.delete-photo-btn {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    padding: 0;
+    font-size: 10px;
+    line-height: 1;
+}
+
+#captured-photos-grid {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* View photos modal styles */
+.photo-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    position: relative;
+}
+
+.photo-card img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.photo-card .delete-photo-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+    border: 2px solid #dc3545;
+    background-color: #dc3545;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.photo-card .delete-photo-btn:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+.badge {
+    font-size: 14px;
+    padding: 6px 12px;
+}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Constants
+        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+        const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
+
+        // Edit button handler
+        document.querySelectorAll('.edit-instructor').forEach(button => {
+            button.addEventListener('click', function() {
+                const instructorId = this.dataset.id;
+                const row = this.closest('tr');
+                const nameParts = row.cells[0].textContent.split(', ');
+                const lastName = nameParts[0].trim();
+                const firstNameParts = nameParts[1] ? nameParts[1].trim().split(' ') : [];
+                const firstName = firstNameParts[0] || '';
+                const middleName = firstNameParts.length > 1 ? firstNameParts.slice(1).join(' ') : '';
+                const idDisplay = row.cells[1].textContent.trim();
+                const username = row.cells[2].textContent;
+                const department = row.cells[3].textContent.trim() === 'Not specified' ? '' : row.cells[3].textContent;
+                
+                openEditModal(instructorId, idDisplay, firstName, middleName, lastName, username, department);
+            });
+        });
+
+        // Delete button handler
+        document.querySelectorAll('.delete-instructor').forEach(button => {
+            button.addEventListener('click', function() {
+                const instructorId = this.dataset.id;
+                const instructorName = this.dataset.name;
+                confirmDelete(instructorId, instructorName);
+            });
+        });
+        
+        // Upload image modal
+        const uploadImageModal = new bootstrap.Modal(document.getElementById('uploadImageModal'));
+        const imageUploadForm = document.getElementById('imageUploadForm');
+        const uploadButton = document.getElementById('uploadButton');
+        let currentInstructorId = null;
+        
+        // Capture and View button handlers
+        document.querySelectorAll('.capture-image').forEach(button => {
+            button.addEventListener('click', function() {
+                const instructorId = this.dataset.id;
+                const instructorName = this.dataset.name;
+                captureInstructorFace(instructorId, instructorName);
+            });
+        });
+
+        document.querySelectorAll('.view-photos').forEach(button => {
+            button.addEventListener('click', function() {
+                const instructorId = this.dataset.id;
+                const instructorName = this.dataset.name;
+                viewInstructorPhotos(instructorId, instructorName);
+            });
+        });
+
+        // Handle modal hidden event
+        document.getElementById('uploadImageModal').addEventListener('hidden.bs.modal', function () {
+            imageUploadForm.reset();
+            uploadButton.disabled = false;
+            uploadButton.innerHTML = '<i class="fas fa-upload me-2"></i>Upload Images';
+        });
+        
+        // Handle file input change
+        document.getElementById('instructor-image-upload').addEventListener('change', function(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    // Validate file type
+                    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+                        window.showWarningNotification('Please select a valid image file (JPG, JPEG, or PNG)');
+                        this.value = '';
+                        return;
+                    }
+                    
+                    // Validate file size
+                    if (file.size > MAX_FILE_SIZE) {
+                        window.showWarningNotification('File size exceeds 5MB limit');
+                        this.value = '';
+                        return;
+                    }
+                }
+            }
+        });
+        
+        // Handle image upload
+        imageUploadForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const instructorId = document.getElementById('instructor-id-for-image').value;
+            const imageFiles = document.getElementById('instructor-image-upload').files;
+            
+            if (!instructorId || imageFiles.length === 0) {
+                window.showWarningNotification('Please select an image to upload');
+                return;
+            }
+
+            // Validate file types
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+            for (let file of imageFiles) {
+                if (!allowedTypes.includes(file.type)) {
+                    window.showWarningNotification('Invalid file type. Please upload JPG, JPEG, or PNG files.');
+                    return;
+                }
+
+                // Validate file size (5MB max)
+                const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+                if (file.size > maxSize) {
+                    window.showWarningNotification('File size too large. Maximum size is 5MB.');
+                    return;
+                }
+            }
+            
+            // Show loading state
+            uploadButton.disabled = true;
+            uploadButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Uploading...';
+            
+            const formData = new FormData();
+            for (let file of imageFiles) {
+                formData.append('image', file);
+            }
+            
+            try {
+                console.log('Uploading images for instructor:', instructorId);
+                console.log('Files to upload:', Array.from(imageFiles).map(f => ({
+                    name: f.name,
+                    type: f.type,
+                    size: f.size
+                })));
+                
+                const response = await fetch(`/instructors/api/upload-instructor-images/${instructorId}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                console.log('Server response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log('Server response:', result);
+                
+                if (result.success) {
+                    window.showSuccessNotification(result.message);
+                    // Close modal and reset form
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('uploadImageModal'));
+                    modal.hide();
+                    document.getElementById('imageUploadForm').reset();
+                    // Refresh the page to show new images
+                    window.location.reload();
+                } else {
+                    window.showErrorNotification(result.message || 'Failed to upload images');
+                }
+            } catch (error) {
+                console.error('Error uploading images:', error);
+                window.showErrorNotification(error.message || 'Error uploading images. Please try again.');
+            } finally {
+                // Reset button state
+                uploadButton.disabled = false;
+                uploadButton.innerHTML = '<i class="fas fa-upload me-2"></i>Upload Images';
+            }
+        });
+        
+        // Load instructor images
+        async function loadInstructorImages(instructorId) {
+            const container = document.getElementById('current-pictures-container');
+            container.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Loading images...</div>';
+            
+            try {
+                const response = await fetch(`/instructors/api/instructor-images/${instructorId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    container.innerHTML = '';
+                    
+                    if (data.images.length === 0) {
+                        container.innerHTML = `
+                            <div class="picture-container picture-placeholder">
+                                <i class="fas fa-camera fa-2x mb-2"></i>
+                                <span>No images yet</span>
+                            </div>
+                        `;
+                    } else {
+                        data.images.forEach(image => {
+                            const imgContainer = document.createElement('div');
+                            imgContainer.className = 'picture-container';
+                            imgContainer.innerHTML = `
+                                <img src="${image.path}" alt="Instructor" class="instructor-image">
+                                <button type="button" class="delete-image-btn" data-image-id="${image.id}">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            `;
+                            
+                            const deleteBtn = imgContainer.querySelector('.delete-image-btn');
+                            deleteBtn.addEventListener('click', () => deleteImage(image.id, instructorId));
+                            
+                            container.appendChild(imgContainer);
+                        });
+                    }
+                } else {
+                    throw new Error(data.message || 'Error loading images');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                container.innerHTML = `
+                    <div class="text-center text-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        ${error.message || 'Error loading images'}
+                    </div>
+                `;
+            }
+        }
+        
+        // Delete image
+        async function deleteImage(imageId, instructorId) {
+            if (!confirm('Are you sure you want to delete this image?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/instructors/api/delete-instructor-image/${imageId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    await loadInstructorImages(instructorId);
+                } else {
+                    throw new Error(result.message || 'Error deleting image');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                window.showErrorNotification(error.message || 'Error deleting image');
+            }
+        }
+
+        // Add Instructor button handler
+        const addInstructorModalElement = document.getElementById('addInstructorModal');
+        const addInstructorModal = new bootstrap.Modal(addInstructorModalElement);
+        
+        document.getElementById('btnAddInstructor').addEventListener('click', function() {
+            // Reset form
+            document.getElementById('addInstructorForm').reset();
+            addInstructorModal.show();
+        });
+
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const clearSearchBtn = document.getElementById('clearSearch');
+        const tableRows = document.querySelectorAll('tbody tr');
+        const instructorCountBadge = document.getElementById('instructorCountBadge');
+
+        function performSearch() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            let visibleCount = 0;
+
+            tableRows.forEach(row => {
+                if (row.cells.length < 6) return; // Skip if not a data row
+
+                const name = row.cells[0].textContent.toLowerCase();
+                const id = row.cells[1].textContent.toLowerCase();
+                const username = row.cells[2].textContent.toLowerCase();
+                const department = row.cells[3].textContent.toLowerCase();
+
+                const matchesSearch = name.includes(searchTerm) ||
+                                    id.includes(searchTerm) ||
+                                    username.includes(searchTerm) ||
+                                    department.includes(searchTerm);
+
+                if (matchesSearch) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Update count badge
+            instructorCountBadge.textContent = visibleCount;
+
+            // Show/hide clear button
+            clearSearchBtn.style.display = searchTerm ? 'inline-block' : 'none';
+        }
+
+        searchInput.addEventListener('input', performSearch);
+
+        clearSearchBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            performSearch();
+            searchInput.focus();
+        });
+
+        // Password validation for add form
+        document.getElementById('addInstructorForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+            
+            if (password !== confirmPassword) {
+                window.showWarningNotification('Passwords do not match.');
+                return false;
+            }
+            
+            // Collect form data
+            const formData = new FormData(this);
+            const data = {};
+            for (let [key, value] of formData.entries()) {
+                data[key] = value;
+            }
+            
+            // Send API request
+            fetch('{{ url_for("instructors.add") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.showSuccessNotification(data.message);
+                    addInstructorModal.hide();
+                    // Reload the page to update the list
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                } else {
+                    window.showErrorNotification(data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                window.showErrorNotification('An error occurred while adding the instructor.');
+            });
+        });
+
+    });
+
+    // Handle Delete Confirmation
+    function confirmDelete(instructorId, name) {
+        // Inject dynamic content into the modal body
+        const modalBody = document.getElementById('deleteModalBody');
+        modalBody.innerHTML = `
+            <p>Are you sure you want to delete the instructor <strong>${name}</strong>?</p>
+            <p class="text-danger">This action cannot be undone.</p>
+        `;
+        
+        // Check if the instructor is assigned to any classes
+        fetch(`/instructors/api/check-instructor-classes/${instructorId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.assigned_classes && data.assigned_classes.length > 0) {
+                    // Inject warning about assigned classes
+                    const warningMessage = document.createElement('div');
+                    warningMessage.className = 'alert alert-warning mt-3';
+                    warningMessage.innerHTML = `
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        This instructor is assigned to the following classes: <strong>${data.assigned_classes.join(', ')}</strong>.<br>
+                        Deleting the instructor will remove them from these classes.
+                    `;
+                    modalBody.appendChild(warningMessage);
+                }
+            });
+        
+        document.getElementById('deleteForm').action = "{{ url_for('instructors.delete', instructor_id=0) }}".replace("0", instructorId);
+        
+        // Show the confirmation modal
+        var modal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+        modal.show();
+    }
+    
+    // Handle delete form submission
+    document.getElementById('deleteForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formAction = this.action;
+        const instructorId = formAction.split('/').pop(); // Extract instructor_id from URL
+        
+        fetch(formAction, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.showSuccessNotification(data.message);
+                bootstrap.Modal.getInstance(document.getElementById('confirmDeleteModal')).hide();
+                // Reload the page to update the list
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                window.showErrorNotification(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            window.showErrorNotification('An error occurred while deleting the instructor.');
+        });
+    });
+    
+    // Handle Edit Instructor Modal
+    function openEditModal(instructorId, idDisplay, firstName, middleName, lastName, username, department) {
+        // Set form action
+        document.getElementById('editInstructorForm').action = "{{ url_for('instructors.update', instructor_id=0) }}".replace("0", instructorId);
+        
+        // Populate form fields
+        document.getElementById('edit_instructor_id').value = instructorId;
+        document.getElementById('edit_id_display').value = idDisplay;
+        document.getElementById('edit_username').value = username;
+        document.getElementById('edit_first_name').value = firstName || '';
+        document.getElementById('edit_middle_name').value = middleName || '';
+        document.getElementById('edit_last_name').value = lastName || '';
+        document.getElementById('edit_department').value = department || '';
+        
+        // Clear password fields
+        document.getElementById('edit_password').value = '';
+        document.getElementById('edit_confirm_password').value = '';
+        
+        // Show the edit modal
+        var modal = new bootstrap.Modal(document.getElementById('editInstructorModal'));
+        modal.show();
+    }
+    
+    // Password validation for edit form
+    document.getElementById('editInstructorForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const password = document.getElementById('edit_password').value;
+        const confirmPassword = document.getElementById('edit_confirm_password').value;
+        
+        // If password is provided, confirm it matches
+        if (password && password !== confirmPassword) {
+            window.showWarningNotification('Passwords do not match.');
+            return false;
+        }
+        
+        // Collect form data
+        const formData = new FormData(this);
+        const data = {};
+        for (let [key, value] of formData.entries()) {
+            data[key] = value;
+        }
+        
+        // Send API request
+        fetch(this.action, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.showSuccessNotification(data.message);
+                bootstrap.Modal.getInstance(document.getElementById('editInstructorModal')).hide();
+                // Reload the page to update the list
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                window.showErrorNotification(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            window.showErrorNotification('An error occurred while updating the instructor.');
+        });
+    });
+
+    // Capture instructor face function
+    function captureInstructorFace(instructorId, instructorName) {
+        // Find instructor data
+        const instructor = Array.from(document.querySelectorAll('tbody tr')).find(row => {
+            const cells = row.querySelectorAll('td');
+            return cells.length >= 7 && cells[1].textContent.trim() === instructorId;
+        });
+        
+        if (!instructor) {
+            alert('Instructor not found');
+            return;
+        }
+        
+        // Open camera modal for face capture
+        openCameraModal(instructorId, instructorName);
+    }
+
+    // View instructor photos function
+    async function viewInstructorPhotos(instructorId, instructorName) {
+        console.log('Viewing photos for instructor:', instructorId);
+
+        const modalEl = document.getElementById('viewPhotosModal');
+        if (!modalEl) {
+            console.error('View photos modal element not found.');
+            return;
+        }
+
+        let modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (!modalInstance) {
+            modalInstance = new bootstrap.Modal(modalEl);
+        }
+
+        const instructorNameDisplay = document.getElementById('view-instructor-name-display');
+        if (instructorNameDisplay) {
+            instructorNameDisplay.textContent = instructorName;
+        }
+
+        // Load and display instructor photos
+        try {
+            console.log('Fetching photos for instructor:', instructorId);
+            const response = await fetch(`/instructors/api/instructor-images/${instructorId}`);
+            console.log('API response status:', response.status);
+            
+            if (!response.ok) {
+                console.error('API response not ok:', response.status, response.statusText);
+                const errorText = await response.text();
+                console.error('Error response:', errorText);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log('API response data:', data);
+
+            const container = document.getElementById('view-photos-container');
+            if (!container) {
+                console.error('Photos container not found');
+                return;
+            }
+
+            container.innerHTML = '';
+
+            if (data.success && Array.isArray(data.images)) {
+                console.log('Found', data.images.length, 'images');
+                if (data.images.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-camera fa-3x mb-3"></i>
+                            <p>No photos uploaded yet</p>
+                            <small>Click "Capture" to add facial recognition photos</small>
+                        </div>
+                    `;
+                } else {
+                    const photosGrid = document.createElement('div');
+                    photosGrid.className = 'row g-3';
+
+                    data.images.forEach(image => {
+                        console.log('Processing image:', image);
+                        if (image.path) {
+                            console.log('Image path:', image.path);
+                            const colDiv = document.createElement('div');
+                            colDiv.className = 'col-md-4 col-sm-6';
+
+                            colDiv.innerHTML = `
+                                <div class="photo-card position-relative">
+                                    <img src="${image.path}" alt="Instructor photo" class="img-fluid rounded" onerror="console.error('Failed to load image:', '${image.path}')">
+                                    <button type="button" class="btn btn-danger btn-sm delete-photo-btn position-absolute" 
+                                            data-image-id="${image.id}" title="Delete photo">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            `;
+
+                            // Add delete functionality
+                            const deleteBtn = colDiv.querySelector('.delete-photo-btn');
+                            deleteBtn.addEventListener('click', () => deleteInstructorPhoto(image.id, instructorId));
+
+                            photosGrid.appendChild(colDiv);
+                        } else {
+                            console.warn('Image missing path:', image);
+                        }
+                    });
+
+                    container.appendChild(photosGrid);
+                }
+            } else {
+                container.innerHTML = `
+                    <div class="text-center text-danger">
+                        Error loading photos. Please try again later.
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading instructor photos:', error);
+            const container = document.getElementById('view-photos-container');
+            if (container) {
+                container.innerHTML = `
+                    <div class="text-center text-danger">
+                        Error loading photos. Please try again later.
+                    </div>
+                `;
+            }
+        }
+
+        modalInstance.show();
+    }
+
+    // Delete instructor photo from view modal
+    async function deleteInstructorPhoto(imageId, instructorId) {
+        try {
+            const response = await fetch(`/instructors/api/delete-instructor-image/${imageId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                window.showSuccessNotification('Photo deleted successfully');
+
+                // Check if instructor still has face images
+                const hasImages = data.remaining_images > 0;
+                updateInstructorFaceStatus(instructorId, hasImages);
+
+                // Refresh the photos display
+                const instructor = Array.from(document.querySelectorAll('tbody tr')).find(row => {
+                    const cells = row.querySelectorAll('td');
+                    return cells.length >= 7 && cells[1].textContent.trim() === instructorId;
+                });
+                if (instructor) {
+                    const instructorName = instructor.querySelectorAll('td')[0].textContent.trim();
+                    await viewInstructorPhotos(instructorId, instructorName);
+                }
+
+            } else {
+                window.showErrorNotification(data.message || 'Failed to delete photo');
+            }
+        } catch (error) {
+            console.error('Error deleting photo:', error);
+            window.showErrorNotification('An error occurred while deleting the photo');
+        }
+    }
+
+    // Open camera modal for face capture
+    async function openCameraModal(instructorId, instructorName) {
+        console.log('Opening camera modal for instructor:', instructorId);
+
+        const modalEl = document.getElementById('cameraModal');
+        if (!modalEl) {
+            console.error('Camera modal element not found.');
+            return;
+        }
+
+        let modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (!modalInstance) {
+            modalInstance = new bootstrap.Modal(modalEl);
+        }
+
+        const instructorNameDisplay = document.getElementById('camera-instructor-name-display');
+        if (instructorNameDisplay) {
+            instructorNameDisplay.textContent = instructorName;
+        }
+
+        const instructorIdInput = document.getElementById('camera-instructor-id');
+        if (instructorIdInput) {
+            instructorIdInput.value = instructorId;
+        }
+
+        // Initialize captured photos array
+        window.capturedPhotos = [];
+
+        // Reset modal state
+        document.getElementById('captured-photos-container').style.display = 'none';
+        document.getElementById('captured-photos-grid').innerHTML = '';
+        document.getElementById('upload-all-btn').style.display = 'none';
+        document.getElementById('photo-count').textContent = '0';
+
+        // Start camera
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user' },
+                audio: false
+            });
+
+            const video = document.getElementById('camera-video');
+            video.srcObject = stream;
+
+            // Set up capture button
+            document.getElementById('capture-btn').onclick = () => capturePhoto();
+            document.getElementById('upload-all-btn').onclick = () => uploadAllPhotos();
+
+            // Stop camera when modal closes
+            modalEl.addEventListener('hidden.bs.modal', () => {
+                stream.getTracks().forEach(track => track.stop());
+            });
+
+        } catch (error) {
+            console.error('Error accessing camera:', error);
+            window.showErrorNotification('Unable to access camera. Please check permissions.');
+            return;
+        }
+
+        modalInstance.show();
+    }
+
+    // Capture photo function
+    function capturePhoto() {
+        const video = document.getElementById('camera-video');
+        const canvas = document.getElementById('camera-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size to video size
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        // Draw video frame to canvas
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Convert to blob and store
+        canvas.toBlob((blob) => {
+            const photoData = {
+                blob: blob,
+                dataUrl: canvas.toDataURL('image/jpeg', 0.9),
+                timestamp: Date.now()
+            };
+
+            window.capturedPhotos.push(photoData);
+            updatePhotoDisplay();
+        }, 'image/jpeg', 0.9);
+    }
+
+    // Update photo display function
+    function updatePhotoDisplay() {
+        const container = document.getElementById('captured-photos-container');
+        const grid = document.getElementById('captured-photos-grid');
+        const count = document.getElementById('photo-count');
+
+        if (window.capturedPhotos.length > 0) {
+            container.style.display = 'block';
+            document.getElementById('upload-all-btn').style.display = 'inline-block';
+        } else {
+            container.style.display = 'none';
+            document.getElementById('upload-all-btn').style.display = 'none';
+        }
+
+        count.textContent = window.capturedPhotos.length;
+
+        // Clear existing thumbnails
+        grid.innerHTML = '';
+
+        // Add thumbnails
+        window.capturedPhotos.forEach((photo, index) => {
+            const thumbnailDiv = document.createElement('div');
+            thumbnailDiv.className = 'photo-thumbnail position-relative';
+            thumbnailDiv.innerHTML = `
+                <img src="${photo.dataUrl}" alt="Captured photo ${index + 1}" class="thumbnail-img">
+                <button type="button" class="btn btn-sm btn-danger delete-photo-btn" data-index="${index}" title="Delete photo">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+
+            // Add delete functionality
+            const deleteBtn = thumbnailDiv.querySelector('.delete-photo-btn');
+            deleteBtn.addEventListener('click', () => deletePhoto(index));
+
+            grid.appendChild(thumbnailDiv);
+        });
+    }
+
+    // Delete photo function
+    function deletePhoto(index) {
+        window.capturedPhotos.splice(index, 1);
+        updatePhotoDisplay();
+    }
+
+    // Upload all photos function
+    async function uploadAllPhotos() {
+        const instructorId = document.getElementById('camera-instructor-id').value;
+
+        if (window.capturedPhotos.length === 0) {
+            window.showWarningNotification('No photos to upload');
+            return;
+        }
+
+        // Show loading state
+        const uploadButton = document.getElementById('upload-all-btn');
+        const originalText = uploadButton.innerHTML;
+        uploadButton.disabled = true;
+        uploadButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Uploading...';
+
+        const formData = new FormData();
+
+        // Add all captured photos
+        window.capturedPhotos.forEach((photo, index) => {
+            formData.append('image', photo.blob, `capture_${index + 1}_${photo.timestamp}.jpg`);
+        });
+
+        try {
+            console.log(`Uploading ${window.capturedPhotos.length} photos for instructor:`, instructorId);
+
+            const response = await fetch(`/instructors/api/upload-instructor-images/${instructorId}`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log('Server response:', result);
+
+            if (result.success) {
+                window.showSuccessNotification(`${window.capturedPhotos.length} photos uploaded successfully!`);
+
+                // Update face status in the table
+                updateInstructorFaceStatus(instructorId, true);
+
+                // Close modal
+                const modalInstance = bootstrap.Modal.getInstance(document.getElementById('cameraModal'));
+                if (modalInstance) modalInstance.hide();
+
+            } else {
+                throw new Error(result.message || 'Error uploading photos');
+            }
+        } catch (error) {
+            console.error('Error uploading photos:', error);
+            window.showErrorNotification(error.message || 'Error uploading photos. Please try again.');
+        } finally {
+            // Reset button state
+            uploadButton.disabled = false;
+            uploadButton.innerHTML = originalText;
+        }
+    }
+
+    // Update instructor face status in the table
+    function updateInstructorFaceStatus(instructorId, hasImages) {
+        const rows = document.querySelectorAll('tbody tr');
+        for (const row of rows) {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 6 && cells[1].textContent.trim() === instructorId.toString()) {
+                const faceStatusCell = cells[5]; // Face Status is the 6th column (0-indexed)
+                if (hasImages) {
+                    faceStatusCell.className = 'text-success';
+                    faceStatusCell.innerHTML = '<strong>Captured</strong>';
+                } else {
+                    faceStatusCell.className = 'text-danger';
+                    faceStatusCell.innerHTML = '<strong>Not Captured</strong>';
+                }
+                break;
+            }
+        }
+    }
+</script>
+
+<style>
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1050;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modal-dialog {
+        width: 90%;
+        max-width: 600px;
+        margin: 1.75rem auto;
+    }
+
+    .modal-content {
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .modal-header {
+        padding: 1rem;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-title {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 500;
+    }
+
+    .close-btn {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0;
+        color: #6c757d;
+    }
+
+    .modal-body {
+        padding: 1rem;
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
+    /* Upload Modal Specific Styles */
+    #uploadImageModal .modal-body {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
+    #uploadImageModal .pictures-preview {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 10px;
+        padding: 10px;
+        border: 1px dashed #ccc;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        min-height: 120px;
+    }
+
+    #uploadImageModal .picture-container {
+        position: relative;
+        width: 100%;
+        padding-top: 100%;
+        overflow: hidden;
+        border: 1px solid #eee;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+
+    #uploadImageModal .picture-container img.instructor-image {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    #uploadImageModal .picture-placeholder {
+        color: #666;
+    }
+
+    #uploadImageModal .delete-image-btn {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        z-index: 10;
+        background-color: rgba(220, 53, 69, 0.8);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 25px;
+        height: 25px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+
+    #uploadImageModal .delete-image-btn:hover {
+        background-color: rgba(220, 53, 69, 1);
+    }
+
+    #uploadImageModal .btn-save {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    #uploadImageModal .btn-save:hover {
+        background-color: #0056b3;
+    }
+
+    #uploadImageModal .btn-save:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+    }
+
+    #uploadImageModal .form-text {
+        color: #6c757d;
+    }
+
+    #uploadImageModal .form-text small {
+        display: block;
+        margin-bottom: 0.25rem;
+    }
+
+    /* Button Styles */
+    .btn-add-student {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+
+{% endblock %}

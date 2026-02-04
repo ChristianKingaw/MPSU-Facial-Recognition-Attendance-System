@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+facial_recognition.log
+
+# Database
+*.db
+*.sqlite3
+
+# Session
+flask_session/
+
+# Environment variables
+.env
+
+# Uploads (frontend)
+frontend/static/uploads/faces/*
+frontend/static/uploads/profiles/*
+!frontend/static/uploads/faces/.gitkeep
+!frontend/static/uploads/profiles/.gitkeep
+
+# Legacy paths (pre-refactor)
+static/uploads/faces/*
+static/uploads/profiles/*
+!static/uploads/faces/.gitkeep
+!static/uploads/profiles/.gitkeep
+
+# System Files
+.DS_Store
+Thumbs.db 

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block title %}Student Enrollment{% endblock %}
+
+<!-- Enrollment page initialization script -->
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/students.js') }}"></script>
+<script src="{{ url_for('static', filename='js/enroll-init.js') }}"></script>
+{% endblock %} 

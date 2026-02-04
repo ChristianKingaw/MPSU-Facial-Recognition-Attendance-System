@@ -1,0 +1,914 @@
+{% extends "instructor_layout.html" %}
+
+{% block title %}Students{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Search input styling */
+.search-input-wrapper {
+    position: relative;
+}
+
+.search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+}
+
+#searchInput {
+    padding-left: 35px;
+    padding-right: 40px;
+}
+
+#clearSearch {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    border: none;
+    background: none;
+    padding: 0;
+}
+
+#clearSearch:hover {
+    color: #000;
+}
+
+/* Filter section */
+.filter-section {
+    margin-bottom: 20px;
+}
+
+.filter-section select {
+    width: 200px;
+}
+
+/* Action buttons container */
+.action-buttons-container {
+    display: flex !important;
+    gap: 4px !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    min-width: 200px !important;
+}
+
+/* Specific Bootstrap colors to override custom styles */
+.btn.btn-sm.btn-primary.btn-pictures {
+    background-color: #0ccaf0 !important;
+    border-color: #0ccaf0 !important;
+    color: #000 !important;
+}
+
+/* Hover states */
+.btn.btn-sm.btn-primary.btn-pictures:hover {
+    background-color: #31d2f2 !important;
+    border-color: #25cff2 !important;
+    color: #000 !important;
+}
+
+/* View button styles */
+.btn.btn-sm.btn-secondary.btn-view-photos {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    color: #fff !important;
+}
+
+.btn.btn-sm.btn-secondary.btn-view-photos:hover {
+    background-color: #5a6268 !important;
+    border-color: #545b62 !important;
+    color: #fff !important;
+}
+
+/* Total count */
+.total-count-container {
+    margin-bottom: 20px;
+}
+
+.total-students-label {
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+/* Camera modal styles */
+.photo-thumbnail {
+    position: relative;
+    display: inline-block;
+    margin: 5px;
+}
+
+.thumbnail-img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+}
+
+.delete-photo-btn {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    padding: 0;
+    font-size: 10px;
+    line-height: 1;
+}
+
+#captured-photos-grid {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Camera modal styles */
+.photo-thumbnail {
+    position: relative;
+    display: inline-block;
+    margin: 5px;
+}
+
+.thumbnail-img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+}
+
+.delete-photo-btn {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    padding: 0;
+    font-size: 10px;
+    line-height: 1;
+}
+
+/* View photos modal styles */
+.photo-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    position: relative;
+}
+
+.photo-card img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.photo-card .delete-photo-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+    border: 2px solid #dc3545;
+    background-color: #dc3545;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.photo-card .delete-photo-btn:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+.badge {
+    font-size: 14px;
+    padding: 6px 12px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h2 class="header-title"><i class="fas fa-users"></i> Students Registered</h2>
+</div>
+
+<div class="controls" style="margin-bottom: 40px;">
+    <div class="select-group">
+        <label for="class-select" style="font-weight: bold; font-size: 1.2em;">Class</label>
+        <select id="class-select" style="width: 250px; height: 40px;">
+            <option value="">All Classes</option>
+        </select>
+    </div>
+</div>
+
+<!-- Search and Filter Section (shown by default) -->
+<div id="searchFilterSection" style="display: block;">
+    <div class="search-add-section">
+        <div class="search-box">
+            <div class="search-input-wrapper">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="searchInput" class="form-control" placeholder="Search students...">
+                <button type="button" id="clearSearch" class="btn btn-link" style="display: none;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="filter-section" style="margin-top: -20px;">
+        <select id="yearLevelFilter" class="form-control">
+            <option value="">All Year Levels</option>
+            <option value="1st Year">1st Year</option>
+            <option value="2nd Year">2nd Year</option>
+            <option value="3rd Year">3rd Year</option>
+            <option value="4th Year">4th Year</option>
+        </select>
+    </div>
+
+    <div class="total-count-container mb-3">
+        <span class="total-students-label">Total Students:</span>
+        <span class="badge bg-primary" id="studentCountBadge">0</span>
+    </div>
+</div>
+
+<div id="students-container">
+    <div class="text-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Loading students...</p>
+    </div>
+</div>
+
+<script>
+    let classes = [];
+    let currentClassId = null;
+    let allStudents = [];
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadClasses();
+        document.getElementById('class-select').addEventListener('change', handleClassChange);
+        document.getElementById('searchInput').addEventListener('input', filterStudents);
+        document.getElementById('yearLevelFilter').addEventListener('change', filterStudents);
+        document.getElementById('clearSearch').addEventListener('click', clearSearch);
+        
+        // Add table action listeners
+        document.addEventListener('click', handleTableActions);
+        
+        // Load all students initially
+        loadAllStudents();
+    });
+
+    function loadClasses() {
+        fetch('/classes/api/list')
+            .then(response => response.json())
+            .then(data => {
+                classes = data;
+                populateClassSelect();
+            })
+            .catch(error => {
+                console.error('Error loading classes:', error);
+                showError('Failed to load classes. Please try again.');
+            });
+    }
+
+    function populateClassSelect() {
+        const select = document.getElementById('class-select');
+        select.innerHTML = '<option value="">All Classes</option>';
+        
+        classes.forEach(cls => {
+            const option = document.createElement('option');
+            option.value = cls.id;
+            option.textContent = `${cls.classCode} - ${cls.courseName}`;
+            select.appendChild(option);
+        });
+    }
+
+    function loadAllStudents() {
+        // Show loading
+        document.getElementById('students-container').innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading students...</p>
+            </div>
+        `;
+
+        fetch('/instructors/api/my-students', {
+            credentials: 'same-origin'
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.students && data.students.length > 0) {
+                    allStudents = data.students;
+                    displayStudents(data.students);
+                    document.getElementById('searchFilterSection').style.display = 'block';
+                    document.getElementById('studentCountBadge').textContent = data.students.length;
+                } else {
+                    showNoStudents();
+                    document.getElementById('searchFilterSection').style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading students:', error);
+                showError('Failed to load students. Please try again.');
+                document.getElementById('searchFilterSection').style.display = 'none';
+            });
+    }
+
+    function handleClassChange(event) {
+        currentClassId = event.target.value;
+        if (currentClassId) {
+            loadStudents(currentClassId);
+        } else {
+            // No class selected - show all students
+            loadAllStudents();
+        }
+    }
+
+    function loadStudents(classId) {
+        // Show loading
+        document.getElementById('students-container').innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading students...</p>
+            </div>
+        `;
+
+        fetch(`/instructors/api/class-students/${classId}`, {
+            credentials: 'same-origin'
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.students && data.students.length > 0) {
+                    allStudents = data.students;
+                    displayStudents(data.students);
+                    document.getElementById('searchFilterSection').style.display = 'block';
+                    document.getElementById('studentCountBadge').textContent = data.students.length;
+                } else {
+                    showNoStudents();
+                    document.getElementById('searchFilterSection').style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading students:', error);
+                showError('Failed to load students. Please try again.');
+                document.getElementById('searchFilterSection').style.display = 'none';
+            });
+    }
+
+    function displayStudents(students) {
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Student ID</th>
+                            <th>Year Level</th>
+                            <th>Face Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsTableBody">
+        `;
+
+        students.forEach(student => {
+            const faceStatus = student.hasFaceImages ? 'Captured' : 'Not Captured';
+            const statusClass = student.hasFaceImages ? 'text-success' : 'text-danger';
+            html += `
+                <tr>
+                    <td>${student.name}</td>
+                    <td>${student.id}</td>
+                    <td>${student.yearLevel}</td>
+                    <td class="${statusClass}"><strong>${faceStatus}</strong></td>
+                    <td>
+                        <div class="action-buttons-container">
+                            <button type="button" class="btn btn-sm btn-primary btn-pictures" data-student-id="${student.id}" title="Capture Face">
+                                <i class="fas fa-camera-retro"></i> Capture
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary btn-view-photos" data-student-id="${student.id}" title="View Photos">
+                                <i class="fas fa-eye"></i> View
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        document.getElementById('students-container').innerHTML = html;
+    }
+
+    function filterStudents() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const yearLevelFilter = document.getElementById('yearLevelFilter').value;
+
+        const filteredStudents = allStudents.filter(student => {
+            const matchesSearch = student.name.toLowerCase().includes(searchTerm) ||
+                                student.id.toLowerCase().includes(searchTerm);
+            const matchesYearLevel = !yearLevelFilter || student.yearLevel === yearLevelFilter;
+            return matchesSearch && matchesYearLevel;
+        });
+
+        displayStudents(filteredStudents);
+        document.getElementById('studentCountBadge').textContent = filteredStudents.length;
+
+        // Show/hide clear search button
+        document.getElementById('clearSearch').style.display = searchTerm ? 'block' : 'none';
+    }
+
+    function clearSearch() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('clearSearch').style.display = 'none';
+        filterStudents();
+    }
+
+    function handleTableActions(e) {
+        const target = e.target;
+        
+        // Find the closest button element that has a data-student-id
+        const button = target.closest('button[data-student-id]');
+        if (!button) return;
+
+        const studentId = button.dataset.studentId;
+        if (!studentId) return;
+
+        if (button.classList.contains('btn-pictures')) {
+            captureStudentFace(studentId);
+        } else if (button.classList.contains('btn-view-photos')) {
+            viewStudentPhotos(studentId);
+        }
+    }
+
+    function captureStudentFace(studentId) {
+        // Find student data
+        const student = allStudents.find(s => s.id === studentId);
+        if (!student) {
+            alert('Student not found');
+            return;
+        }
+        
+        // Open camera modal for face capture
+        openCameraModal(studentId, student.name);
+    }
+
+    async function viewStudentPhotos(studentId) {
+        // Find student data
+        const student = allStudents.find(s => s.id === studentId);
+        if (!student) {
+            alert('Student not found');
+            return;
+        }
+
+        console.log('Viewing photos for student:', studentId);
+
+        const modalEl = document.getElementById('viewPhotosModal');
+        if (!modalEl) {
+            console.error('View photos modal element not found.');
+            return;
+        }
+
+        let modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (!modalInstance) {
+            modalInstance = new bootstrap.Modal(modalEl);
+        }
+
+        const studentNameDisplay = document.getElementById('view-student-name-display');
+        if (studentNameDisplay) {
+            studentNameDisplay.textContent = student.name;
+        }
+
+        // Load and display student photos
+        try {
+            console.log('Fetching photos for student:', studentId);
+            const response = await fetch(`/instructors/api/student-images/${studentId}`, {
+                credentials: 'same-origin'
+            });
+            console.log('API response status:', response.status);
+            
+            if (!response.ok) {
+                console.error('API response not ok:', response.status, response.statusText);
+                const errorText = await response.text();
+                console.error('Error response:', errorText);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log('API response data:', data);
+
+            const container = document.getElementById('view-photos-container');
+            if (!container) {
+                console.error('Photos container not found');
+                return;
+            }
+
+            container.innerHTML = '';
+
+            if (data.success && Array.isArray(data.images)) {
+                console.log('Found', data.images.length, 'images');
+                if (data.images.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-camera fa-3x mb-3"></i>
+                            <p>No photos uploaded yet</p>
+                            <small>Click "Capture" to add facial recognition photos</small>
+                        </div>
+                    `;
+                } else {
+                    const photosGrid = document.createElement('div');
+                    photosGrid.className = 'row g-3';
+
+                    data.images.forEach(image => {
+                        console.log('Processing image:', image);
+                        if (image.path) {
+                            console.log('Image path:', image.path);
+                            const colDiv = document.createElement('div');
+                            colDiv.className = 'col-md-4 col-sm-6';
+
+                            colDiv.innerHTML = `
+                                <div class="photo-card position-relative">
+                                    <img src="${image.path}" alt="Student photo" class="img-fluid rounded" onerror="console.error('Failed to load image:', '${image.path}')">
+                                    <button type="button" class="btn btn-danger btn-sm delete-photo-btn position-absolute" 
+                                            data-image-id="${image.id}" title="Delete photo">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            `;
+
+                            // Add delete functionality
+                            const deleteBtn = colDiv.querySelector('.delete-photo-btn');
+                            deleteBtn.addEventListener('click', () => deleteStudentPhoto(image.id, studentId));
+
+                            photosGrid.appendChild(colDiv);
+                        } else {
+                            console.warn('Image missing path:', image);
+                        }
+                    });
+
+                    container.appendChild(photosGrid);
+                }
+            } else {
+                container.innerHTML = `
+                    <div class="text-center text-danger">
+                        Error loading photos. Please try again later.
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading student photos:', error);
+            const container = document.getElementById('view-photos-container');
+            if (container) {
+                container.innerHTML = `
+                    <div class="text-center text-danger">
+                        Error loading photos. Please try again later.
+                    </div>
+                `;
+            }
+        }
+
+        modalInstance.show();
+    }
+
+    async function deleteStudentPhoto(imageId, studentId) {
+        try {
+            const response = await fetch(`/instructors/api/delete-student-image/${imageId}`, {
+                method: 'DELETE',
+                credentials: 'same-origin'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showAlert('Photo deleted successfully', 'success');
+
+                // Update face status based on remaining images
+                const hasImages = data.remaining_images > 0;
+                const student = allStudents.find(s => s.id === studentId);
+                if (student && student.hasFaceImages && !hasImages) {
+                    student.hasFaceImages = false;
+                    displayStudents(allStudents);
+                }
+
+                // Refresh the view modal
+                await viewStudentPhotos(studentId);
+
+            } else {
+                showAlert(data.message || 'Failed to delete photo', 'danger');
+            }
+        } catch (error) {
+            console.error('Error deleting photo:', error);
+            showAlert('An error occurred while deleting the photo', 'danger');
+        }
+    }
+
+    async function openCameraModal(studentId, studentName) {
+        console.log('Opening camera modal for student:', studentId);
+
+        const modalEl = document.getElementById('cameraModal');
+        if (!modalEl) {
+            console.error('Camera modal element not found.');
+            return;
+        }
+
+        let modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (!modalInstance) {
+            modalInstance = new bootstrap.Modal(modalEl);
+        }
+
+        const studentNameDisplay = document.getElementById('camera-student-name-display');
+        if (studentNameDisplay) {
+            studentNameDisplay.textContent = studentName;
+        }
+
+        const studentIdInput = document.getElementById('camera-student-id');
+        if (studentIdInput) {
+            studentIdInput.value = studentId;
+        }
+
+        // Initialize captured photos array
+        window.capturedPhotos = [];
+
+        // Reset modal state
+        document.getElementById('captured-photos-container').style.display = 'none';
+        document.getElementById('captured-photos-grid').innerHTML = '';
+        document.getElementById('upload-all-btn').style.display = 'none';
+        document.getElementById('photo-count').textContent = '0';
+
+        // Start camera
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user' },
+                audio: false
+            });
+
+            const video = document.getElementById('camera-video');
+            video.srcObject = stream;
+
+            // Set up capture button
+            document.getElementById('capture-btn').onclick = () => capturePhoto();
+            document.getElementById('upload-all-btn').onclick = () => uploadAllPhotos();
+
+            // Stop camera when modal closes
+            modalEl.addEventListener('hidden.bs.modal', () => {
+                stream.getTracks().forEach(track => track.stop());
+            });
+
+        } catch (error) {
+            console.error('Error accessing camera:', error);
+            showAlert('Unable to access camera. Please check permissions.', 'danger');
+            return;
+        }
+
+        modalInstance.show();
+    }
+
+    function capturePhoto() {
+        const video = document.getElementById('camera-video');
+        const canvas = document.getElementById('camera-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size to video size
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        // Draw video frame to canvas
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Convert to blob and store
+        canvas.toBlob((blob) => {
+            const photoData = {
+                blob: blob,
+                dataUrl: canvas.toDataURL('image/jpeg', 0.9),
+                timestamp: Date.now()
+            };
+
+            window.capturedPhotos.push(photoData);
+            updatePhotoDisplay();
+        }, 'image/jpeg', 0.9);
+    }
+
+    function updatePhotoDisplay() {
+        const container = document.getElementById('captured-photos-container');
+        const grid = document.getElementById('captured-photos-grid');
+        const count = document.getElementById('photo-count');
+
+        if (window.capturedPhotos.length > 0) {
+            container.style.display = 'block';
+            document.getElementById('upload-all-btn').style.display = 'inline-block';
+        } else {
+            container.style.display = 'none';
+            document.getElementById('upload-all-btn').style.display = 'none';
+        }
+
+        count.textContent = window.capturedPhotos.length;
+
+        // Clear existing thumbnails
+        grid.innerHTML = '';
+
+        // Add thumbnails
+        window.capturedPhotos.forEach((photo, index) => {
+            const thumbnailDiv = document.createElement('div');
+            thumbnailDiv.className = 'photo-thumbnail position-relative';
+            thumbnailDiv.innerHTML = `
+                <img src="${photo.dataUrl}" alt="Captured photo ${index + 1}" class="thumbnail-img">
+                <button type="button" class="btn btn-sm btn-danger delete-photo-btn" data-index="${index}" title="Delete photo">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+
+            // Add delete functionality
+            const deleteBtn = thumbnailDiv.querySelector('.delete-photo-btn');
+            deleteBtn.addEventListener('click', () => deletePhoto(index));
+
+            grid.appendChild(thumbnailDiv);
+        });
+    }
+
+    function deletePhoto(index) {
+        window.capturedPhotos.splice(index, 1);
+        updatePhotoDisplay();
+    }
+
+    async function uploadAllPhotos() {
+        const studentId = document.getElementById('camera-student-id').value;
+
+        if (window.capturedPhotos.length === 0) {
+            showAlert('No photos to upload', 'warning');
+            return;
+        }
+
+        // Show loading state
+        const uploadButton = document.getElementById('upload-all-btn');
+        const originalText = uploadButton.innerHTML;
+        uploadButton.disabled = true;
+        uploadButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Uploading...';
+
+        const formData = new FormData();
+        formData.append('student_id', studentId);
+
+        // Add all captured photos
+        window.capturedPhotos.forEach((photo, index) => {
+            formData.append('images', photo.blob, `capture_${index + 1}_${photo.timestamp}.jpg`);
+        });
+
+        try {
+            console.log(`Uploading ${window.capturedPhotos.length} photos for student:`, studentId);
+
+            const response = await fetch('/students/api/upload-images', {
+                method: 'POST',
+                credentials: 'same-origin',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log('Server response:', result);
+
+            if (result.success) {
+                showAlert(`${window.capturedPhotos.length} photos uploaded successfully!`, 'success');
+
+                // Reload students to update face status
+                if (currentClassId && currentClassId !== 'undefined' && currentClassId.trim() !== '') {
+                    loadStudents(currentClassId);
+                } else {
+                    loadAllStudents();
+                }
+
+                // Close modal
+                const modalInstance = bootstrap.Modal.getInstance(document.getElementById('cameraModal'));
+                if (modalInstance) modalInstance.hide();
+
+            } else {
+                throw new Error(result.message || 'Error uploading photos');
+            }
+        } catch (error) {
+            console.error('Error uploading photos:', error);
+            showAlert(error.message || 'Error uploading photos. Please try again.', 'danger');
+        } finally {
+            // Reset button state
+            uploadButton.disabled = false;
+            uploadButton.innerHTML = originalText;
+        }
+    }
+
+
+
+    function showAlert(message, type = 'info') {
+        // Map the types to the floating notification functions
+        if (type === 'success') {
+            window.showSuccessNotification(message);
+        } else if (type === 'danger' || type === 'error') {
+            window.showErrorNotification(message);
+        } else if (type === 'warning') {
+            window.showWarningNotification(message);
+        } else {
+            window.showInfoNotification(message);
+        }
+    }
+
+
+
+    function showNoStudents() {
+        document.getElementById('students-container').innerHTML = `
+            <div class="no-attendance text-center">
+                <i class="fas fa-users fa-3x mb-3 text-muted"></i>
+                <p>No students are currently registered in this class.</p>
+            </div>
+        `;
+    }
+
+    function showError(message) {
+        document.getElementById('students-container').innerHTML = `
+            <div class="no-attendance">
+                <i class="fas fa-exclamation-triangle fa-3x mb-3 text-danger"></i>
+                <p class="text-danger">${message}</p>
+            </div>
+        `;
+    }
+
+</script>
+
+<!-- Camera Modal -->
+<div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cameraModalLabel">Capture Facial Recognition Images</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h4 class="camera-title mb-3" id="camera-student-name-display"></h4>
+                <p class="mb-3 text-muted">Capture multiple photos from different angles and lighting conditions for better recognition. Aim for 3-5 clear photos.</p>
+
+                <div class="camera-container">
+                    <video id="camera-video" autoplay playsinline style="width: 100%; max-width: 400px; border: 2px solid #ddd; border-radius: 8px;"></video>
+                    <canvas id="camera-canvas" style="display: none;"></canvas>
+                </div>
+
+                <div class="camera-controls mt-3">
+                    <button type="button" class="btn btn-success" id="capture-btn">
+                        <i class="fas fa-camera me-2"></i>Capture Photo
+                    </button>
+                    <button type="button" class="btn btn-success" id="upload-all-btn" style="display: none;">
+                        <i class="fas fa-upload me-2"></i>Upload All (<span id="photo-count">0</span>)
+                    </button>
+                </div>
+
+                <div class="captured-photos mt-3" id="captured-photos-container" style="display: none;">
+                    <h6>Captured Photos:</h6>
+                    <div id="captured-photos-grid" class="d-flex flex-wrap gap-2"></div>
+                </div>
+
+                <input type="hidden" id="camera-student-id">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Photos Modal -->
+<div class="modal fade" id="viewPhotosModal" tabindex="-1" aria-labelledby="viewPhotosModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewPhotosModalLabel">Student Facial Recognition Photos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h4 class="mb-3" id="view-student-name-display"></h4>
+                <div id="view-photos-container">
+                    <!-- Photos will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+{% endblock %}

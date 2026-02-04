@@ -1,0 +1,209 @@
+{% extends "instructor_layout.html" %}
+
+{% block title %}Classes{% endblock %}
+
+{% block extra_css %}
+<link href="{{ url_for('static', filename='css/schedule.css') }}" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modals.css') }}">
+<style>
+/* Override custom action button styles to allow Bootstrap styling */
+.btn.btn-sm.btn-primary,
+.btn.btn-sm.btn-danger,
+.btn.btn-sm.btn-secondary,
+.btn.btn-sm.btn-info {
+    width: auto !important;
+    height: auto !important;
+    border-radius: 0.375rem !important;
+    margin: 0 2px !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.875rem !important;
+    background: var(--bs-btn-bg) !important;
+    border: var(--bs-btn-border-width) solid var(--bs-btn-border-color) !important;
+    color: var(--bs-btn-color) !important;
+    display: inline-block !important;
+    white-space: nowrap !important;
+}
+
+/* Action buttons container */
+.action-buttons-container {
+    display: flex !important;
+    gap: 4px !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    min-width: 150px !important;
+}
+
+/* Specific Bootstrap colors to override custom styles */
+.btn.btn-sm.btn-primary {
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+    color: #fff !important;
+}
+
+.btn.btn-sm.btn-danger {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    color: #fff !important;
+}
+
+.btn.btn-sm.btn-secondary {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    color: #fff !important;
+}
+
+.btn.btn-sm.btn-info {
+    background-color: #0dcaf0 !important;
+    border-color: #0dcaf0 !important;
+    color: #000 !important;
+}
+
+/* Hover states */
+.btn.btn-sm.btn-primary:hover {
+    background-color: #0b5ed7 !important;
+    border-color: #0a58ca !important;
+    color: #fff !important;
+}
+
+.btn.btn-sm.btn-danger:hover {
+    background-color: #bb2d3b !important;
+    border-color: #b02a37 !important;
+    color: #fff !important;
+}
+
+.btn.btn-sm.btn-secondary:hover {
+    background-color: #5c636a !important;
+    border-color: #565e64 !important;
+    color: #fff !important;
+}
+
+.btn.btn-sm.btn-info:hover {
+    background-color: #31d2f2 !important;
+    border-color: #25cff2 !important;
+    color: #000 !important;
+}
+
+@media (max-width: 768px) {
+    .export-import-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    
+    .export-import-btn {
+        min-width: auto;
+        height: 42px;
+        font-size: 14px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h2 class="header-title"><i class="fas fa-calendar-alt"></i> Classes</h2>
+</div>
+
+<div class="search-add-section">
+    <div class="search-box">
+        <div class="search-input-wrapper">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" id="searchInput" class="form-control" placeholder="Search classes...">
+            <button type="button" id="clearSearch" class="btn btn-link" style="display: none;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="total-count-container mb-3">
+    <span class="total-students-label">Total Classes:</span>
+    <span class="badge bg-primary" id="classCountBadge">0</span>
+</div>
+
+<div id="classes-view" class="view">
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Class Code</th>
+                <th>Course Description</th>
+                <th>Schedule</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="classes-table-body">
+            <!-- Classes will be populated by JavaScript -->
+            <tr>
+                <td colspan="4" class="text-center py-4">No classes found.</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmation-modal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmationModalLabel">Confirm Action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmation-text">Are you sure you want to proceed?</p>
+                <input type="hidden" id="confirmActionType">
+                <input type="hidden" id="confirmItemId">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm-yes">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/classes.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Instructor Classes script loaded and DOM ready.');
+
+    // Search functionality
+    const searchInput = document.getElementById('searchInput');
+    const clearSearch = document.getElementById('clearSearch');
+    const classCountBadge = document.getElementById('classCountBadge');
+
+    // Clear search functionality
+    clearSearch.addEventListener('click', function() {
+        searchInput.value = '';
+        this.style.display = 'none';
+        // Trigger search with empty value to show all classes
+        performSearch('');
+    });
+
+    // Search input functionality
+    searchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        clearSearch.style.display = query ? 'block' : 'none';
+        performSearch(query);
+    });
+
+    function performSearch(query) {
+        // Implementation would depend on how classes data is loaded
+        // This is a placeholder for the search functionality
+        console.log('Searching for:', query);
+    }
+
+    // Update class count
+    function updateClassCount(count) {
+        classCountBadge.textContent = count;
+    }
+
+});
+</script>
+{% endblock %}

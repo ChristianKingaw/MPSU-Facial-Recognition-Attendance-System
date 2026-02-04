@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Instructor Dashboard{% endblock %} - ClassPass</title>
+    
+    <!-- Bootstrap CSS - Local -->
+    <link href="{{ url_for('static', filename='bootstrap/bootstrap-5.3.8-dist/css/bootstrap.min.css') }}" rel="stylesheet">
+    
+    <!-- Font Awesome - Local -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='fontawesome/css/all.min.css') }}">
+    
+    <!-- Custom CSS - Use main styles first for base styling, then override with specific instructor styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/instructor.css') }}">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Mobile Toggle Button (hidden by default) -->
+    <button class="mobile-toggle d-md-none">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            Attendance Management
+        </div>
+        <div class="sidebar-menu">
+            <a href="{{ url_for('instructors.attendance') }}" class="menu-item {% if request.path == url_for('instructors.attendance') %}active{% endif %}">
+                <i class="fas fa-clipboard-list me-2"></i> Attendance
+            </a>
+            <a href="{{ url_for('instructors.classes') }}" class="menu-item {% if request.path == url_for('instructors.classes') %}active{% endif %}">
+                <i class="fas fa-calendar-alt me-2"></i> Classes
+            </a>
+            <a href="{{ url_for('instructors.students') }}" class="menu-item {% if request.path == url_for('instructors.students') %}active{% endif %}">
+                <i class="fas fa-users me-2"></i> Students
+            </a>
+
+        </div>
+        <div class="user-section">
+            <div class="user-profile-link">
+                {% if current_user.profile_picture %}
+                    <!-- Debug info -->
+                    <!-- {{ current_user.profile_picture }} -->
+                    <img src="" 
+                         alt="{{ current_user.first_name }}" 
+                         class="user-avatar" 
+                         onerror="console.log('Error loading image:', this.src); this.onerror=null; this.src='{{ url_for('static', filename='/uploads/profile_pictures/8320dc89-6653-4594-999e-03cb4c48a615_images.png') }}';">
+                {% else %}
+                    <img src="{{ url_for('static', filename='/uploads/profile_pictures/8320dc89-6653-4594-999e-03cb4c48a615_images.png') }}" 
+                         alt="Default Avatar" 
+                         class="user-avatar">
+                {% endif %}
+                <div class="user-info">
+                    <p class="user-name">{{ current_user.first_name }} {{ current_user.last_name }}</p>
+                    <small class="text-muted">{{ current_user.email }}</small>
+                </div>
+            </div>
+        </div>
+        <a href="{{ url_for('auth.logout') }}" class="logout-btn">
+            <i class="fas fa-sign-out-alt me-2"></i> Logout
+        </a>    
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show d-none" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </div>
+    
+    <!-- Bootstrap JS Bundle - Local -->
+    <script src="{{ url_for('static', filename='bootstrap/bootstrap-5.3.8-dist/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/floating-notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+    
+    <!-- Convert Flash Messages to Floating Notifications -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Convert existing flash messages to floating notifications
+            const alerts = document.querySelectorAll('.alert:not(.floating-notification)');
+            alerts.forEach(alert => {
+                const message = alert.textContent.trim();
+                let type = 'info';
+                
+                // Map Bootstrap alert classes to notification types
+                if (alert.classList.contains('alert-success')) {
+                    type = 'success';
+                } else if (alert.classList.contains('alert-danger')) {
+                    type = 'error';
+                } else if (alert.classList.contains('alert-warning')) {
+                    type = 'warning';
+                } else if (alert.classList.contains('alert-info')) {
+                    type = 'info';
+                }
+                
+                // Show floating notification
+                if (window.showFloatingNotification && message) {
+                    window.showFloatingNotification(message, type, 5000, true);
+                    // Alert is already hidden with d-none class
+                }
+            });
+        });
+    </script>
+    
+    <!-- Mobile Sidebar Toggle -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const mobileToggle = document.querySelector('.mobile-toggle');
+            const sidebar = document.querySelector('.sidebar');
+            
+            if (mobileToggle && sidebar) {
+                mobileToggle.addEventListener('click', function() {
+                    sidebar.classList.toggle('show');
+                });
+                
+                // Close sidebar when clicking outside on mobile
+                document.addEventListener('click', function(e) {
+                    if (window.innerWidth <= 768 && 
+                        !sidebar.contains(e.target) && 
+                        !mobileToggle.contains(e.target) &&
+                        sidebar.classList.contains('show')) {
+                        sidebar.classList.remove('show');
+                    }
+                });
+            }
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

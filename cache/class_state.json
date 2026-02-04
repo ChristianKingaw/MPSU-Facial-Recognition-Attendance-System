@@ -1,0 +1,18 @@
+{
+  "ended_classes_day": "2025-12-14",
+  "ended_classes": [
+    91,
+    94,
+    298
+  ],
+  "ended_class_expirations": {
+    "94": "2025-12-17T02:59:56.407295",
+    "91": "2025-12-17T03:08:52.058780",
+    "298": "2025-12-15T00:55:05.320654"
+  },
+  "ongoing_classes": [],
+  "class_rooms": {},
+  "class_session_ids": {},
+  "class_instructor_assignments": {},
+  "saved_at": "2025-12-14T12:55:05.320654"
+}
