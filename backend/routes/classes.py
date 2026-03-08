@@ -389,40 +389,70 @@ def get_classes():
     else:
         return (jsonify({'success': False, 'message': 'Unauthorized'}), 401)
     try:
+        if not classes:
+            return jsonify([])
+
+        class_ids = [cls.id for cls in classes]
+        instructor_ids = {
+            instructor_id
+            for cls in classes
+            for instructor_id in (cls.instructor_id, cls.substitute_instructor_id)
+            if instructor_id
+        }
+        course_ids = {cls.course_id for cls in classes if cls.course_id}
+
+        user_map = {}
+        if instructor_ids:
+            users = User.query.filter(User.id.in_(instructor_ids)).all()
+            user_map = {user.id: user for user in users}
+
+        course_map = {}
+        if course_ids:
+            courses = Course.query.filter(Course.id.in_(course_ids)).all()
+            course_map = {course.id: course for course in courses}
+
+        enrollment_counts = {}
+        enrollment_rows = (
+            db.session.query(Enrollment.class_id, func.count(Enrollment.id))
+            .filter(Enrollment.class_id.in_(class_ids))
+            .group_by(Enrollment.class_id)
+            .all()
+        )
+        for class_id, count in enrollment_rows:
+            enrollment_counts[class_id] = int(count)
+
         class_list = []
         for cls in classes:
-            try:
-                if cls.instructor_id:
-                    instructor = User.query.get(cls.instructor_id)
-                    if instructor:
-                        instructor_name = f'{instructor.first_name} {instructor.last_name}'
-                    else:
-                        instructor_name = 'Unknown'
+            if cls.instructor_id:
+                instructor = user_map.get(cls.instructor_id)
+                if instructor:
+                    instructor_name = f'{instructor.first_name} {instructor.last_name}'
                 else:
-                    instructor_name = 'Unassigned'
-                substitute_name = None
-                if cls.substitute_instructor_id:
-                    substitute = User.query.get(cls.substitute_instructor_id)
-                    if substitute:
-                        substitute_name = f'{substitute.first_name} {substitute.last_name}'
-                    else:
-                        substitute_name = 'Unknown'
-                enrolled_count = Enrollment.query.filter_by(class_id=cls.id).count()
-                course = Course.query.get(cls.course_id)
-                course_name = course.description if course else 'Unknown'
-                class_data = _serialize_class_payload(
-                    cls,
-                    instructor_name=instructor_name,
-                    substitute_name=substitute_name,
-                    enrolled_count=enrolled_count,
-                    course_name=course_name,
-                )
-                class_list.append(class_data)
-            except Exception as e:
-                pass
+                    instructor_name = 'Unknown'
+            else:
+                instructor_name = 'Unassigned'
+
+            substitute_name = None
+            if cls.substitute_instructor_id:
+                substitute = user_map.get(cls.substitute_instructor_id)
+                if substitute:
+                    substitute_name = f'{substitute.first_name} {substitute.last_name}'
+                else:
+                    substitute_name = 'Unknown'
+
+            enrolled_count = enrollment_counts.get(cls.id, 0)
+            course = course_map.get(cls.course_id)
+            course_name = course.description if course else 'Unknown'
+            class_data = _serialize_class_payload(
+                cls,
+                instructor_name=instructor_name,
+                substitute_name=substitute_name,
+                enrolled_count=enrolled_count,
+                course_name=course_name,
+            )
+            class_list.append(class_data)
         return jsonify(class_list)
     except Exception as e:
-        import traceback
         return (jsonify({'error': str(e)}), 500)
 
 @classes_bp.route('/api/<int:class_id>', methods=['GET'])
@@ -986,6 +1016,31 @@ def import_classes():
         updated_count = 0
         course_updated_count = 0
         errors = []
+
+        courses = Course.query.all()
+        course_by_code = {course.code: course for course in courses if course.code}
+
+        existing_classes = Class.query.all()
+        class_by_code = {class_obj.class_code: class_obj for class_obj in existing_classes if class_obj.class_code}
+        conflict_candidates = list(existing_classes)
+
+        instructors = User.query.filter_by(role='instructor').all()
+        instructor_by_username = {}
+        instructor_by_full_name = {}
+        for instructor in instructors:
+            if instructor.username:
+                instructor_by_username[instructor.username] = instructor
+            if instructor.first_name and instructor.last_name:
+                full_name = f'{instructor.first_name} {instructor.last_name}'
+            elif instructor.first_name:
+                full_name = instructor.first_name
+            elif instructor.last_name:
+                full_name = instructor.last_name
+            else:
+                full_name = instructor.username or ''
+            if full_name:
+                instructor_by_full_name[full_name] = instructor
+
         for row_num, row in enumerate(ws.iter_rows(min_row=data_start_row, values_only=True), data_start_row):
             try:
                 row_data = {}
@@ -1002,34 +1057,20 @@ def import_classes():
                 if not all([class_code, course_code, room_number, schedule]):
                     errors.append(f'Row {row_num}: Missing required fields for class {class_code}')
                     continue
-                course = Course.query.filter_by(code=course_code).first()
+                course = course_by_code.get(course_code)
                 if not course:
                     errors.append(f'Row {row_num}: Course {course_code} not found for class {class_code}')
                     continue
                 course_description = row_data.get('course description', '').strip()
                 if course_description and course_description != 'No description':
-                    course.description = course_description
-                    db.session.add(course)
-                    course_updated_count += 1
+                    if course.description != course_description:
+                        course.description = course_description
+                        db.session.add(course)
+                        course_updated_count += 1
                 instructor = None
                 instructor_name = row_data.get('instructor name', '').strip()
                 if instructor_name and instructor_name != 'Unassigned':
-                    instructors = User.query.filter_by(role='instructor').all()
-                    for inst in instructors:
-                        inst_full_name = ''
-                        if inst.first_name and inst.last_name:
-                            inst_full_name = f'{inst.first_name} {inst.last_name}'
-                        elif inst.first_name:
-                            inst_full_name = inst.first_name
-                        elif inst.last_name:
-                            inst_full_name = inst.last_name
-                        else:
-                            inst_full_name = inst.username
-                        if inst_full_name == instructor_name:
-                            instructor = inst
-                            break
-                    if not instructor:
-                        instructor = User.query.filter_by(username=instructor_name, role='instructor').first()
+                    instructor = instructor_by_full_name.get(instructor_name) or instructor_by_username.get(instructor_name)
                     if not instructor:
                         errors.append(f'Row {row_num}: Instructor {instructor_name} not found for class {class_code}')
                         continue
@@ -1038,7 +1079,7 @@ def import_classes():
                     errors.append(f'Invalid schedule format for class {class_code}: {error_message}')
                     continue
                 standardized_schedule = standardize_schedule_days(schedule)
-                existing_class = Class.query.filter_by(class_code=class_code).first()
+                existing_class = class_by_code.get(class_code)
                 if existing_class:
                     existing_class.course_id = course.id
                     if class_description:
@@ -1052,13 +1093,14 @@ def import_classes():
                         existing_class.school_year = school_year
                     updated_count += 1
                 else:
-                    existing_classes = Class.query.filter(Class.class_code != class_code).all()
-                    conflict, message = check_schedule_conflict(room_number, standardized_schedule, existing_classes)
+                    conflict, message = check_schedule_conflict(room_number, standardized_schedule, conflict_candidates)
                     if conflict:
                         errors.append(f'Row {row_num}: Schedule conflict for class {class_code}: {message}')
                         continue
                     new_class = Class(class_code=class_code, course_id=course.id, description=class_description if class_description else None, room_number=room_number, schedule=standardized_schedule, instructor_id=instructor.id if instructor else None, term=term.lower() if term else default_term, school_year=school_year if school_year else default_school_year, created_at=pst_now_naive())
                     db.session.add(new_class)
+                    class_by_code[class_code] = new_class
+                    conflict_candidates.append(new_class)
                     imported_count += 1
             except Exception as e:
                 errors.append(f'Row {row_num}: Error processing class {class_code}: {str(e)}')

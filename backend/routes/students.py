@@ -18,6 +18,7 @@ from models import User, Class, Student, Enrollment, AttendanceRecord, Instructo
 from forms import StudentForm, EnrollmentForm
 from decorators import admin_required
 from exceptions import AttendanceValidationError
+from utils.face_embeddings import extract_embedding_bytes, sync_face_encoding_cache
 students_bp = Blueprint('students', __name__, url_prefix='/students')
 ALLOWED_DEPARTMENTS = {'BSIT'}
 
@@ -33,6 +34,15 @@ def sanitize_name_for_folder(name):
     if not sanitized:
         return 'unknown'
     return sanitized.lower()
+
+
+def _sync_face_cache_safely():
+    try:
+        sync_face_encoding_cache()
+        return None
+    except Exception as cache_error:
+        current_app.logger.warning('Face cache sync failed: %s', cache_error)
+        return 'Embeddings were saved, but cache sync failed. Kiosk updates may be delayed.'
 
 @students_bp.route('/enroll', methods=['GET'])
 @admin_required
@@ -185,18 +195,43 @@ def upload_student_images():
                 os.makedirs(uploads_dir, exist_ok=True)
                 file_path = os.path.join(uploads_dir, filename)
                 file.save(file_path)
+
+                embedding_bytes = extract_embedding_bytes(file_path)
+                if embedding_bytes is None:
+                    errors.append(f'No detectable face found in {file.filename}.')
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                    continue
+
                 relative_image_path = os.path.join('uploads', 'students', sanitized_student_name, filename).replace('\\', '/')
-                face_encoding = FaceEncoding(student_id=student_id, encoding_data=bytes([0] * 128), image_path=relative_image_path, created_at=pst_now_naive())
+                face_encoding = FaceEncoding(
+                    student_id=student_id,
+                    encoding_data=embedding_bytes,
+                    image_path=relative_image_path,
+                    created_at=pst_now_naive()
+                )
                 db.session.add(face_encoding)
+                db.session.flush()
                 uploaded_images.append({'id': face_encoding.id, 'filename': filename, 'path': url_for('static', filename=face_encoding.image_path)})
             except Exception as e:
                 error_msg = f'Error uploading {file.filename}: {str(e)}'
                 errors.append(error_msg)
+                if 'file_path' in locals() and os.path.exists(file_path):
+                    os.remove(file_path)
                 continue
         try:
             if uploaded_images:
                 db.session.commit()
-                return jsonify({'success': True, 'message': f'Successfully uploaded {len(uploaded_images)} image(s).' + (f' Failed to upload {len(errors)} image(s).' if errors else ''), 'images': uploaded_images, 'errors': errors if errors else []})
+                cache_warning = _sync_face_cache_safely()
+                response = {
+                    'success': True,
+                    'message': f'Successfully uploaded {len(uploaded_images)} image(s) with extracted embeddings.' + (f' Failed to upload {len(errors)} image(s).' if errors else ''),
+                    'images': uploaded_images,
+                    'errors': errors if errors else []
+                }
+                if cache_warning:
+                    response['cache_warning'] = cache_warning
+                return jsonify(response)
             else:
                 return (jsonify({'success': False, 'message': 'No images were uploaded successfully.', 'errors': errors}), 400)
         except Exception as e:
@@ -232,14 +267,27 @@ def upload_student_image():
             os.makedirs(uploads_dir, exist_ok=True)
             file_path = os.path.join(uploads_dir, filename)
             file.save(file_path)
+
+            embedding_bytes = extract_embedding_bytes(file_path)
+            if embedding_bytes is None:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                return (jsonify({'success': False, 'message': 'No detectable face found in the uploaded image.'}), 400)
+
             relative_image_path = os.path.join('uploads', 'students', sanitized_student_name, filename).replace('\\', '/')
-            placeholder_encoding = bytes([0] * 128)
-            face_encoding = FaceEncoding(student_id=student_id, encoding_data=placeholder_encoding, image_path=relative_image_path, created_at=pst_now_naive())
+            face_encoding = FaceEncoding(student_id=student_id, encoding_data=embedding_bytes, image_path=relative_image_path, created_at=pst_now_naive())
             try:
                 db.session.add(face_encoding)
-                face_encoding.encoding_data = placeholder_encoding
                 db.session.commit()
-                return jsonify({'success': True, 'message': 'Image uploaded successfully', 'image': {'id': face_encoding.id, 'filename': filename, 'path': url_for('static', filename=relative_image_path)}})
+                cache_warning = _sync_face_cache_safely()
+                response = {
+                    'success': True,
+                    'message': 'Image uploaded and embedding extracted successfully',
+                    'image': {'id': face_encoding.id, 'filename': filename, 'path': url_for('static', filename=relative_image_path)}
+                }
+                if cache_warning:
+                    response['cache_warning'] = cache_warning
+                return jsonify(response)
             except Exception as db_error:
                 db.session.rollback()
                 if os.path.exists(file_path):
@@ -279,7 +327,11 @@ def delete_student_image(image_id):
                 os.remove(file_path)
         db.session.delete(face_encoding)
         db.session.commit()
-        return jsonify({'success': True, 'message': 'Image deleted successfully'})
+        cache_warning = _sync_face_cache_safely()
+        response = {'success': True, 'message': 'Image deleted successfully'}
+        if cache_warning:
+            response['cache_warning'] = cache_warning
+        return jsonify(response)
     except Exception as e:
         db.session.rollback()
         return (jsonify({'success': False, 'message': str(e)}), 500)

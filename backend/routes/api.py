@@ -7,7 +7,6 @@ from sqlalchemy import or_
 from flask import current_app
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-import time as time_module
 from utils.timezone import get_pst_now, pst_now_naive
 from utils.system_settings_helper import DEFAULT_ROOM_NUMBERS, load_room_numbers
 from utils.attendance_manager import AttendanceTimeValidator
@@ -46,6 +45,13 @@ def _status_enum(raw_status, default=AttendanceStatus.LATE):
         'late': AttendanceStatus.LATE,
     }
     return mapping.get(status_text, default)
+
+
+def _resolve_face_cache_path():
+    cache_path = current_app.config.get('FACE_ENCODINGS_CACHE')
+    if not cache_path:
+        cache_path = os.path.abspath(os.path.join(current_app.root_path, '..', 'cache', 'face_encodings.pkl'))
+    return cache_path
 
 @api_bp.before_request
 def before_request_api():
@@ -103,15 +109,32 @@ def get_room_numbers_api():
 @api_bp.route('/face-encodings', methods=['GET'])
 def download_face_encodings():
     """Stream the latest face encoding cache so kiosks can stay in sync."""
-    cache_path = current_app.config.get('FACE_ENCODINGS_CACHE')
-    if not cache_path:
-        cache_path = os.path.abspath(os.path.join(current_app.root_path, '..', 'cache', 'face_encodings.pkl'))
+    cache_path = _resolve_face_cache_path()
     if not os.path.exists(cache_path):
         return (jsonify({'success': False, 'message': 'Face encoding cache not found'}), 404)
     try:
         return send_file(cache_path, mimetype='application/octet-stream', as_attachment=True, download_name='face_encodings.pkl')
     except Exception as exc:
         return (jsonify({'success': False, 'message': 'Unable to load face encodings'}), 500)
+
+
+@api_bp.route('/face-encodings/meta', methods=['GET'])
+def get_face_encodings_meta():
+    """Return lightweight cache metadata so clients can avoid unnecessary downloads."""
+    cache_path = _resolve_face_cache_path()
+    if not os.path.exists(cache_path):
+        return (jsonify({'success': False, 'message': 'Face encoding cache not found'}), 404)
+    try:
+        cache_stat = os.stat(cache_path)
+        modified_utc = datetime.utcfromtimestamp(cache_stat.st_mtime).replace(microsecond=0).isoformat() + 'Z'
+        return jsonify({
+            'success': True,
+            'mtime': modified_utc,
+            'mtime_epoch': cache_stat.st_mtime,
+            'size_bytes': cache_stat.st_size,
+        })
+    except Exception:
+        return (jsonify({'success': False, 'message': 'Unable to load face encoding metadata'}), 500)
 
 @api_bp.route('/sessions/active', methods=['GET'])
 def get_active_class_sessions():
@@ -277,17 +300,44 @@ def mark_absent_students():
     try:
         current_time = get_pst_now()
         completed_sessions = ClassSession.query.filter(ClassSession.is_attendance_processed == False, (ClassSession.scheduled_end_time != None) & (ClassSession.scheduled_end_time + timedelta(minutes=15) < current_time) | (ClassSession.scheduled_start_time != None) & (ClassSession.scheduled_start_time + timedelta(hours=4) < current_time)).all()
+        if not completed_sessions:
+            return
+
+        class_ids = sorted({session.class_id for session in completed_sessions})
+        session_ids = [session.id for session in completed_sessions]
+
+        enrollment_rows = (
+            db.session.query(Enrollment.class_id, Enrollment.student_id)
+            .filter(Enrollment.class_id.in_(class_ids))
+            .all()
+            if class_ids
+            else []
+        )
+        enrolled_students_by_class = {}
+        for class_id, student_id in enrollment_rows:
+            enrolled_students_by_class.setdefault(class_id, set()).add(student_id)
+
+        attendance_rows = (
+            db.session.query(AttendanceRecord.class_session_id, AttendanceRecord.student_id)
+            .filter(AttendanceRecord.class_session_id.in_(session_ids))
+            .all()
+            if session_ids
+            else []
+        )
+        attended_students_by_session = {}
+        for class_session_id, student_id in attendance_rows:
+            attended_students_by_session.setdefault(class_session_id, set()).add(student_id)
+
         for session in completed_sessions:
             try:
                 with db.session.begin_nested():
-                    enrolled_students = Enrollment.query.filter_by(class_id=session.class_id).all()
-                    enrolled_student_ids = {enrollment.student_id for enrollment in enrolled_students}
-                    attendance_records = AttendanceRecord.query.filter_by(class_session_id=session.id).all()
-                    attended_student_ids = {record.student_id for record in attendance_records}
+                    enrolled_student_ids = enrolled_students_by_class.get(session.class_id, set())
+                    attended_student_ids = attended_students_by_session.get(session.id, set())
                     absent_student_ids = enrolled_student_ids - attended_student_ids
                     for student_id in absent_student_ids:
                         absent_record = AttendanceRecord(student_id=student_id, class_id=session.class_id, class_session_id=session.id, status=AttendanceStatus.ABSENT, marked_by=None, marked_at=current_time, date=current_time)
                         db.session.add(absent_record)
+                        attended_students_by_session.setdefault(session.id, set()).add(student_id)
                     session.is_attendance_processed = True
                     session.view_lock_owner = None
                     session.view_lock_acquired_at = None
@@ -327,7 +377,7 @@ def get_instructors():
 @api_bp.route('/checkin/instructor', methods=['POST'])
 @limiter.limit('30 per minute')
 def instructor_checkin():
-    data = request.get_json()
+    data = request.get_json() or {}
     instructor_id = data.get('instructor_id')
     class_id = data.get('class_id')
     client_timestamp = data.get('timestamp')
@@ -335,9 +385,15 @@ def instructor_checkin():
     if not instructor_id or not class_id:
         return (jsonify({'error': 'Missing instructor_id or class_id'}), 400)
     try:
-        instructor = User.query.filter_by(id=instructor_id, role='instructor').first()
+        try:
+            instructor_id = int(instructor_id)
+            class_id = int(class_id)
+        except (TypeError, ValueError):
+            return (jsonify({'error': 'Invalid instructor_id or class_id'}), 400)
+
+        instructor_exists = db.session.query(User.id).filter_by(id=instructor_id, role='instructor').first() is not None
         class_obj = Class.query.get(class_id)
-        if not instructor:
+        if not instructor_exists:
             return (jsonify({'error': f'Instructor with ID {instructor_id} not found or does not have instructor role'}), 404)
         if not class_obj:
             return (jsonify({'error': f'Class with ID {class_id} not found'}), 404)
@@ -350,8 +406,9 @@ def instructor_checkin():
                 from utils.timezone import to_pst
                 client_time = datetime.fromisoformat(client_timestamp.replace('Z', '+00:00'))
                 client_time_pst = to_pst(client_time).replace(tzinfo=None)
+                timestamp_tolerance = int(current_app.config.get('API_TIMESTAMP_TOLERANCE', 300))
                 time_diff = abs((client_time_pst - current_time).total_seconds())
-                if time_diff <= 300:
+                if time_diff <= timestamp_tolerance:
                     current_time = client_time_pst
             except ValueError:
                 pass
@@ -368,10 +425,10 @@ def instructor_checkin():
             try:
                 current_session = ClassSession(class_id=class_id, date=today, start_time=current_time, scheduled_start_time=scheduled_start_datetime, scheduled_end_time=scheduled_end_datetime, instructor_id=instructor_id, is_attendance_processed=False, session_room_number=session_room_number or None)
                 db.session.add(current_session)
-                db.session.commit()
+                db.session.flush()
             except IntegrityError:
                 db.session.rollback()
-                current_session = ClassSession.query.filter_by(class_id=class_id, date=today).first()
+                current_session = ClassSession.query.filter_by(class_id=class_id, date=today, is_attendance_processed=False).order_by(ClassSession.start_time.desc()).first()
                 if current_session:
                     pass
                 else:
@@ -383,24 +440,17 @@ def instructor_checkin():
                 current_session.session_room_number = session_room_number
             if not current_session.scheduled_end_time and schedule_window:
                 current_session.scheduled_end_time = schedule_window['end_datetime']
-            db.session.commit()
         attendance_record = InstructorAttendance.query.filter_by(instructor_id=instructor_id, class_id=class_id, date=today).first()
         if not attendance_record:
             attendance_record = InstructorAttendance(instructor_id=instructor_id, class_id=class_id, class_session_id=current_session.id, date=today, status='Present', time_in=current_time)
             db.session.add(attendance_record)
         else:
-            updates_applied = False
             if attendance_record.status != 'Present':
                 attendance_record.status = 'Present'
-                updates_applied = True
             if not attendance_record.time_in:
                 attendance_record.time_in = current_time
-                updates_applied = True
             if not attendance_record.class_session_id:
                 attendance_record.class_session_id = current_session.id
-                updates_applied = True
-            if updates_applied:
-                pass
         db.session.commit()
         return (jsonify({'message': 'Instructor check-in successful', 'class_session_id': current_session.id, 'scheduled_start_time': current_session.scheduled_start_time.isoformat() if current_session.scheduled_start_time else None, 'scheduled_end_time': current_session.scheduled_end_time.isoformat() if current_session.scheduled_end_time else None, 'assignment_role': assignment_role}), 200)
     except Exception as e:
@@ -471,27 +521,71 @@ def instructor_checkout():
             class_sessions = query.all()
         if not class_sessions:
             return (jsonify({'message': 'No active class sessions found for checkout', 'absent_students_marked': 0}), 200)
+
+        class_ids = sorted({class_session.class_id for class_session in class_sessions})
+        session_ids = [class_session.id for class_session in class_sessions]
+        target_dates = sorted({class_session.date for class_session in class_sessions})
+
+        class_rows = Class.query.filter(Class.id.in_(class_ids)).all() if class_ids else []
+        class_map = {class_obj.id: class_obj for class_obj in class_rows}
+
+        enrollment_rows = (
+            db.session.query(Enrollment.class_id, Enrollment.student_id)
+            .filter(Enrollment.class_id.in_(class_ids))
+            .all()
+            if class_ids
+            else []
+        )
+        enrolled_by_class = {}
+        for enrolled_class_id, student_id in enrollment_rows:
+            enrolled_by_class.setdefault(enrolled_class_id, []).append(student_id)
+
+        attendance_rows = (
+            AttendanceRecord.query
+            .filter(AttendanceRecord.class_session_id.in_(session_ids))
+            .all()
+            if session_ids
+            else []
+        )
+        attendance_by_session = {}
+        for attendance_row in attendance_rows:
+            attendance_by_session.setdefault(attendance_row.class_session_id, []).append(attendance_row)
+
+        instructor_attendance_rows = (
+            InstructorAttendance.query
+            .filter(
+                InstructorAttendance.instructor_id == instructor_id,
+                InstructorAttendance.class_id.in_(class_ids),
+                InstructorAttendance.date.in_(target_dates),
+            )
+            .all()
+            if class_ids and target_dates
+            else []
+        )
+        instructor_attendance_map = {
+            (record.class_id, record.date): record
+            for record in instructor_attendance_rows
+        }
+
         total_absent_count = 0
         session_results = []
         for class_session in class_sessions:
             session_checkout_time = pst_now_naive()
-            enrollments = Enrollment.query.filter_by(class_id=class_session.class_id).all()
-            enrolled_student_ids = [e.student_id for e in enrollments]
-            existing_attendance = AttendanceRecord.query.filter_by(class_session_id=class_session.id).all()
+            enrolled_student_ids = enrolled_by_class.get(class_session.class_id, [])
+            existing_attendance = attendance_by_session.get(class_session.id, [])
             checked_in_student_ids = {record.student_id for record in existing_attendance}
             absent_student_ids = [sid for sid in enrolled_student_ids if sid not in checked_in_student_ids]
             absent_count = 0
             for student_id in absent_student_ids:
-                existing_record = AttendanceRecord.query.filter_by(class_session_id=class_session.id, student_id=student_id).first()
-                if not existing_record:
-                    absent_record = AttendanceRecord(student_id=student_id, class_id=class_session.class_id, class_session_id=class_session.id, status=AttendanceStatus.ABSENT, date=class_session.date, marked_by=None, marked_at=get_pst_now(), time_out=session_checkout_time)
-                    db.session.add(absent_record)
-                    absent_count += 1
-                    total_absent_count += 1
+                absent_record = AttendanceRecord(student_id=student_id, class_id=class_session.class_id, class_session_id=class_session.id, status=AttendanceStatus.ABSENT, date=class_session.date, marked_by=None, marked_at=session_checkout_time, time_out=session_checkout_time)
+                db.session.add(absent_record)
+                absent_count += 1
+                total_absent_count += 1
             for attendance in existing_attendance:
                 if attendance.time_out is None:
                     attendance.time_out = session_checkout_time
-            attendance_record = InstructorAttendance.query.filter_by(instructor_id=instructor_id, class_id=class_session.class_id, date=class_session.date).first()
+            attendance_key = (class_session.class_id, class_session.date)
+            attendance_record = instructor_attendance_map.get(attendance_key)
             if attendance_record:
                 if not attendance_record.time_in:
                     attendance_record.time_in = class_session.start_time or session_checkout_time
@@ -503,7 +597,8 @@ def instructor_checkout():
             else:
                 attendance_record = InstructorAttendance(instructor_id=instructor_id, class_id=class_session.class_id, class_session_id=class_session.id, date=class_session.date, status='Present' if class_session.start_time else 'Absent', time_in=class_session.start_time, time_out=session_checkout_time if not auto else None)
                 db.session.add(attendance_record)
-            class_obj = Class.query.get(class_session.class_id)
+                instructor_attendance_map[attendance_key] = attendance_record
+            class_obj = class_map.get(class_session.class_id)
             session_results.append({'class_session_id': class_session.id, 'class_id': class_session.class_id, 'class_code': class_obj.class_code if class_obj else 'Unknown', 'absent_students_marked': absent_count, 'total_enrolled': len(enrolled_student_ids), 'checked_in': len(checked_in_student_ids)})
             class_session.is_attendance_processed = True
             class_session.view_lock_owner = None
@@ -517,61 +612,65 @@ def instructor_checkout():
 @api_bp.route('/scan/student', methods=['POST'])
 @limiter.limit('60 per minute')
 def student_scan():
-    data = request.get_json()
+    data = request.get_json() or {}
     student_id = data.get('student_id')
     class_session_id = data.get('class_session_id')
     client_timestamp = data.get('timestamp')
     if not student_id or not class_session_id:
         return (jsonify({'error': 'Missing student_id or class_session_id'}), 400)
     try:
-        student = Student.query.get(student_id)
-        if not student:
+        class_session_id = int(class_session_id)
+    except (TypeError, ValueError):
+        return (jsonify({'error': 'Invalid class_session_id'}), 400)
+    try:
+        student_exists = db.session.query(Student.id).filter_by(id=student_id).first() is not None
+        if not student_exists:
             return (jsonify({'error': f'Student with ID {student_id} not found'}), 404)
-        class_session = ClassSession.query.filter_by(id=class_session_id).with_for_update().first()
+
+        class_session = ClassSession.query.filter(ClassSession.id == class_session_id).with_for_update().first()
         if not class_session:
             return (jsonify({'error': f'Class session with ID {class_session_id} not found'}), 404)
+
         current_time = pst_now_naive()
-        if class_session.start_time:
-            time_diff = current_time - class_session.start_time
+        session_start_time = class_session.start_time
+        if session_start_time:
+            time_diff = current_time - session_start_time
             if time_diff > timedelta(hours=4):
                 return (jsonify({'error': 'Class session has ended', 'details': 'Attendance can only be recorded within 4 hours of the actual start time'}), 400)
-        enrollment = Enrollment.query.filter_by(student_id=student_id, class_id=class_session.class_id).first()
-        if not enrollment:
+
+        enrollment_exists = db.session.query(Enrollment.id).filter_by(student_id=student_id, class_id=class_session.class_id).first() is not None
+        if not enrollment_exists:
             return (jsonify({'error': 'Student not enrolled', 'details': f'Student {student_id} is not enrolled in class {class_session.class_id}'}), 403)
-        existing_attendance = AttendanceRecord.query.filter_by(student_id=student_id, class_session_id=class_session_id).first()
-        if existing_attendance:
+
+        existing_attendance = (
+            db.session.query(AttendanceRecord.id)
+            .filter_by(student_id=student_id, class_session_id=class_session.id)
+            .first()
+        )
+        if existing_attendance is not None:
             return (jsonify({'error': 'Already checked in', 'details': f'Student {student_id} is already checked in for this session'}), 409)
-        current_time = pst_now_naive()
+
         scan_datetime = current_time
         if client_timestamp:
             try:
                 client_time = datetime.fromisoformat(client_timestamp.replace('Z', '+00:00'))
                 from utils.timezone import to_pst
                 client_time_pst = to_pst(client_time).replace(tzinfo=None)
+                timestamp_tolerance = int(current_app.config.get('API_TIMESTAMP_TOLERANCE', 300))
                 time_diff = abs((client_time_pst - current_time).total_seconds())
-                if time_diff <= 300:
+                if time_diff <= timestamp_tolerance:
                     scan_datetime = client_time_pst
-            except ValueError as e:
+            except ValueError:
                 pass
+
         status = 'Late'
-        if class_session.start_time:
-            status = AttendanceTimeValidator.determine_attendance_status(class_session.start_time, scan_datetime)
-            time_diff = scan_datetime - class_session.start_time
-        max_retries = current_app.config.get('API_MAX_RETRIES', 3)
-        retry_delay = current_app.config.get('API_RETRY_DELAY', 0.1)
-        retry_count = 0
-        while retry_count < max_retries:
-            try:
-                attendance_record = AttendanceRecord(student_id=student.id, class_id=class_session.class_id, class_session_id=class_session.id, status=AttendanceStatus[status.upper()], marked_by=None, marked_at=scan_datetime, time_in=scan_datetime, date=scan_datetime)
-                db.session.add(attendance_record)
-                db.session.commit()
-                break
-            except IntegrityError:
-                retry_count += 1
-                if retry_count == max_retries:
-                    raise
-                db.session.rollback()
-                time_module.sleep(retry_delay)
+        if session_start_time:
+            status = AttendanceTimeValidator.determine_attendance_status(session_start_time, scan_datetime)
+
+        attendance_record = AttendanceRecord(student_id=student_id, class_id=class_session.class_id, class_session_id=class_session.id, status=AttendanceStatus[status.upper()], marked_by=None, marked_at=scan_datetime, time_in=scan_datetime, date=scan_datetime)
+        db.session.add(attendance_record)
+        db.session.commit()
+
         return (jsonify({'message': 'Student attendance recorded successfully', 'status': status, 'recorded_at': scan_datetime.isoformat(), 'time_in': scan_datetime.isoformat(), 'scheduled_start_time': class_session.scheduled_start_time.isoformat() if class_session.scheduled_start_time else None}), 201)
     except IntegrityError:
         db.session.rollback()
@@ -805,37 +904,52 @@ def get_courses():
     except Exception as e:
         return (jsonify({'error': 'Failed to fetch courses', 'details': str(e)}), 500)
 
-@api_bp.route('/face-encodings', methods=['GET'])
+@api_bp.route('/face-encodings/json', methods=['GET'])
 @limiter.limit('60 per minute')
 def get_face_encodings():
-    """Get all face encodings."""
+    """Get face encoding rows as JSON. Embeddings are optional to keep responses lightweight."""
     try:
-        import numpy as np
-        student_encodings = FaceEncoding.query.all()
-        instructor_encodings = InstructorFaceEncoding.query.all()
+        include_embeddings = str(request.args.get('include_embeddings', '0')).strip().lower() in {'1', 'true', 'yes', 'on'}
+        try:
+            limit = int(request.args.get('limit', 500))
+        except (TypeError, ValueError):
+            limit = 500
+        limit = max(1, min(limit, 5000))
+
+        if include_embeddings:
+            import numpy as np
+
+        student_encodings = FaceEncoding.query.order_by(FaceEncoding.id.desc()).limit(limit).all()
+        instructor_encodings = InstructorFaceEncoding.query.order_by(InstructorFaceEncoding.id.desc()).limit(limit).all()
         student_encodings_list = []
         for encoding in student_encodings:
             try:
-                if encoding.encoding_data:
+                embedding_data = None
+                if include_embeddings and encoding.encoding_data:
                     embedding_array = np.frombuffer(encoding.encoding_data, dtype=np.float32)
                     embedding_data = embedding_array.tolist()
-                else:
-                    embedding_data = None
                 student_encodings_list.append({'id': encoding.id, 'student_id': encoding.student_id, 'embedding': embedding_data, 'image_path': encoding.image_path})
-            except Exception as e:
+            except Exception:
                 continue
         instructor_encodings_list = []
         for encoding in instructor_encodings:
             try:
-                if encoding.encoding:
+                embedding_data = None
+                if include_embeddings and encoding.encoding:
                     embedding_array = np.frombuffer(encoding.encoding, dtype=np.float32)
                     embedding_data = embedding_array.tolist()
-                else:
-                    embedding_data = None
                 instructor_encodings_list.append({'id': encoding.id, 'instructor_id': encoding.instructor_id, 'embedding': embedding_data, 'image_path': encoding.image_path})
-            except Exception as e:
+            except Exception:
                 continue
-        return (jsonify({'student_encodings': student_encodings_list, 'instructor_encodings': instructor_encodings_list}), 200)
+        return (
+            jsonify({
+                'include_embeddings': include_embeddings,
+                'limit': limit,
+                'student_encodings': student_encodings_list,
+                'instructor_encodings': instructor_encodings_list,
+            }),
+            200,
+        )
     except Exception as e:
         return (jsonify({'error': 'Failed to fetch face encodings', 'details': str(e)}), 500)
 
@@ -997,56 +1111,26 @@ def record_student_attendance():
             class_id = int(class_id)
         except (TypeError, ValueError):
             return (jsonify({'success': False, 'message': 'Invalid class_id'}), 400)
-        student = Student.query.filter_by(id=student_id).first()
+        student = Student.query.get(student_id)
         if not student:
             return (jsonify({'success': False, 'message': f'Student with ID {student_id} not found'}), 404)
-        from models import Enrollment
-        enrollment = Enrollment.query.filter_by(student_id=student_id, class_id=class_id).first()
-        if not enrollment:
+        enrollment_exists = db.session.query(Enrollment.id).filter_by(student_id=student_id, class_id=class_id).first() is not None
+        if not enrollment_exists:
             return (jsonify({'success': False, 'message': f'Student {first_name} {last_name} (ID: {student_id}) is not enrolled in this class. Please enroll in this class first.', 'error_type': 'not_enrolled_in_class'}), 403)
         class_obj = Class.query.get(class_id)
         if not class_obj:
             return (jsonify({'success': False, 'message': 'Class not found'}), 404)
-        from models import ClassSession
         today = date.today()
         class_session = ClassSession.query.filter_by(class_id=class_id, date=today).first()
+        session_started_now = False
         if class_session and (not class_session.start_time):
             class_session.start_time = pst_now_naive()
-            db.session.commit()
+            session_started_now = True
         if not class_session:
             now = pst_now_naive()
-            scheduled_start_datetime = None
-            scheduled_end_datetime = None
-            try:
-                schedule_str = class_obj.schedule.strip()
-                time_str = None
-                if ' ' in schedule_str:
-                    parts = schedule_str.split()
-                    if len(parts) >= 2:
-                        for i in range(len(parts) - 1, -1, -1):
-                            if ':' in parts[i] and any((period in parts[i].upper() for period in ['AM', 'PM'])):
-                                time_str = parts[i]
-                                if i > 0 and parts[i - 1].upper() in ['AM', 'PM']:
-                                    time_str = parts[i - 1] + ' ' + time_str
-                                break
-                if not time_str and ':' in schedule_str:
-                    time_str = schedule_str
-                if time_str:
-                    time_str = time_str.strip().upper()
-                    if 'AM' not in time_str and 'PM' not in time_str:
-                        time_str += ' AM'
-                    scheduled_time = datetime.strptime(time_str, '%I:%M %p').time()
-                    scheduled_start_datetime = datetime.combine(today, scheduled_time)
-                    if '-' in schedule_str:
-                        end_time_str = schedule_str.split('-')[1].strip()
-                        try:
-                            end_time = datetime.strptime(end_time_str, '%I:%M %p').time()
-                            scheduled_end_datetime = datetime.combine(today, end_time)
-                        except ValueError:
-                            scheduled_end_datetime = None
-            except Exception as e:
-                scheduled_start_datetime = None
-                scheduled_end_datetime = None
+            schedule_window = resolve_schedule_window(class_obj.schedule or '', target_date=today)
+            scheduled_start_datetime = schedule_window['start_datetime'] if schedule_window else None
+            scheduled_end_datetime = schedule_window['end_datetime'] if schedule_window else None
             class_session = ClassSession(class_id=class_id, instructor_id=class_obj.instructor_id, date=today, start_time=now, scheduled_start_time=scheduled_start_datetime, scheduled_end_time=scheduled_end_datetime, is_attendance_processed=False, session_room_number=getattr(class_obj, 'room_number', None))
             db.session.add(class_session)
             db.session.flush()
@@ -1055,12 +1139,13 @@ def record_student_attendance():
         if class_session.start_time:
             status_str = AttendanceTimeValidator.determine_attendance_status(class_session.start_time, current_time)
             determined_status = AttendanceStatus[status_str.upper()]
-            time_diff = current_time - class_session.start_time
         else:
             determined_status = attendance_status
         existing_record = AttendanceRecord.query.filter_by(class_session_id=class_session.id, student_id=student_id).first()
         if existing_record:
             if existing_record.status == AttendanceStatus.LATE:
+                if session_started_now:
+                    db.session.commit()
                 return (jsonify({'success': False, 'message': f'Attendance already recorded for {first_name} {last_name} today', 'existing_record': {'id': existing_record.id, 'student_id': existing_record.student_id, 'time_in': existing_record.time_in.isoformat() if existing_record.time_in else None, 'date': existing_record.date.isoformat() if existing_record.date else None, 'status': existing_record.status.value if existing_record.status else 'Absent'}}), 409)
             elif existing_record.status == AttendanceStatus.ABSENT:
                 existing_record.status = determined_status
@@ -1081,17 +1166,30 @@ def record_student_attendance():
 def check_attendance_status():
     """Check if attendance is already marked for a student in a class session"""
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         if not data:
             return (jsonify({'success': False, 'message': 'No data provided'}), 400)
         student_id = _payload_value(data, 'student_id', 'studentId', 'StudentID')
         class_session_id = _payload_value(data, 'class_session_id', 'classSessionId', 'ClassSessionID')
         if not all([student_id, class_session_id]):
             return (jsonify({'success': False, 'message': 'Missing required fields: student_id, class_session_id'}), 400)
-        from models import AttendanceRecord
-        existing_record = AttendanceRecord.query.filter_by(class_session_id=class_session_id, student_id=student_id).first()
+        try:
+            class_session_id = int(class_session_id)
+        except (TypeError, ValueError):
+            return (jsonify({'success': False, 'message': 'Invalid class_session_id'}), 400)
+
+        existing_record = (
+            db.session.query(
+                AttendanceRecord.id,
+                AttendanceRecord.status,
+                AttendanceRecord.time_in,
+            )
+            .filter_by(class_session_id=class_session_id, student_id=student_id)
+            .first()
+        )
         if existing_record:
-            return (jsonify({'success': True, 'has_attendance': True, 'status': existing_record.status.value if existing_record.status else 'Unknown', 'time_in': existing_record.time_in.isoformat() if existing_record.time_in else None, 'record_id': existing_record.id}), 200)
+            record_id, status, time_in = existing_record
+            return (jsonify({'success': True, 'has_attendance': True, 'status': status.value if status else 'Unknown', 'time_in': time_in.isoformat() if time_in else None, 'record_id': record_id}), 200)
         else:
             return (jsonify({'success': True, 'has_attendance': False, 'status': 'Not Marked'}), 200)
     except Exception as e:
@@ -1101,18 +1199,32 @@ def check_attendance_status():
 def check_instructor_attendance_status():
     """Check if attendance is already marked for an instructor in a class session"""
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         if not data:
             return (jsonify({'success': False, 'message': 'No data provided'}), 400)
         instructor_id = _payload_value(data, 'instructor_id', 'instructorId', 'InstructorID')
         class_session_id = _payload_value(data, 'class_session_id', 'classSessionId', 'ClassSessionID')
         if not all([instructor_id, class_session_id]):
             return (jsonify({'success': False, 'message': 'Missing required fields: instructor_id, class_session_id'}), 400)
-        from models import InstructorAttendance
-        existing_record = InstructorAttendance.query.filter_by(class_session_id=class_session_id, instructor_id=instructor_id).first()
+        try:
+            instructor_id = int(instructor_id)
+            class_session_id = int(class_session_id)
+        except (TypeError, ValueError):
+            return (jsonify({'success': False, 'message': 'Invalid instructor_id or class_session_id'}), 400)
+
+        existing_record = (
+            db.session.query(
+                InstructorAttendance.id,
+                InstructorAttendance.status,
+                InstructorAttendance.time_in,
+            )
+            .filter_by(class_session_id=class_session_id, instructor_id=instructor_id)
+            .first()
+        )
         if existing_record:
-            status_value = existing_record.status.value if hasattr(existing_record.status, 'value') else existing_record.status
-            return (jsonify({'success': True, 'has_attendance': True, 'status': status_value if status_value else 'Unknown', 'time_in': existing_record.time_in.isoformat() if existing_record.time_in else None, 'record_id': existing_record.id}), 200)
+            record_id, status, time_in = existing_record
+            status_value = status.value if hasattr(status, 'value') else status
+            return (jsonify({'success': True, 'has_attendance': True, 'status': status_value if status_value else 'Unknown', 'time_in': time_in.isoformat() if time_in else None, 'record_id': record_id}), 200)
         else:
             return (jsonify({'success': True, 'has_attendance': False, 'status': 'Not Marked'}), 200)
     except Exception as e:

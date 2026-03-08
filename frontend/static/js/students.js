@@ -1098,7 +1098,20 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('Server response:', result);
 
             if (result.success) {
-                showAlert(`${window.capturedPhotos.length} photos uploaded successfully!`, 'success');
+                const uploadedCount = Array.isArray(result.images) ? result.images.length : 0;
+                const failedCount = Array.isArray(result.errors) ? result.errors.length : 0;
+
+                if (uploadedCount > 0 && failedCount === 0) {
+                    showAlert(`${uploadedCount} photo${uploadedCount === 1 ? '' : 's'} uploaded successfully!`, 'success');
+                } else if (uploadedCount > 0) {
+                    showAlert(`${uploadedCount} uploaded, ${failedCount} failed. Please retry failed captures.`, 'warning');
+                } else {
+                    throw new Error(result.message || 'No photos were uploaded successfully.');
+                }
+
+                if (result.cache_warning) {
+                    showAlert(result.cache_warning, 'warning');
+                }
 
                 // Update face status
                 const student = state.students.find(s => s.id === studentId);

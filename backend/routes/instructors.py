@@ -19,6 +19,7 @@ from models import User, Class, Student, Enrollment, FaceEncoding, AttendanceRec
 from forms import RegisterForm, StudentForm, EnrollmentForm, ProfilePictureForm
 from decorators import admin_required, instructor_required
 from extensions import db
+from utils.face_embeddings import extract_embedding_bytes, sync_face_encoding_cache
 from utils.schedule_parser import resolve_schedule_window
 try:
     from deepface import DeepFace
@@ -44,6 +45,15 @@ def sanitize_name_for_folder(name):
         return 'unknown'
     return sanitized.lower()
 
+
+def _sync_face_cache_safely():
+    try:
+        sync_face_encoding_cache()
+        return None
+    except Exception as cache_error:
+        current_app.logger.warning('Face cache sync failed: %s', cache_error)
+        return 'Embeddings were saved, but cache sync failed. Kiosk updates may be delayed.'
+
 @instructors_bp.route('/manage', methods=['GET'])
 @login_required
 def manage():
@@ -51,10 +61,18 @@ def manage():
         flash('You do not have permission to access this page.', 'danger')
         return redirect(url_for('instructors.dashboard'))
     instructors = User.query.filter_by(role='instructor').all()
-    from models import InstructorFaceEncoding
+    instructor_ids = [instructor.id for instructor in instructors]
+    face_ids = set()
+    if instructor_ids:
+        face_ids = {
+            instructor_id
+            for (instructor_id,) in db.session.query(InstructorFaceEncoding.instructor_id)
+            .filter(InstructorFaceEncoding.instructor_id.in_(instructor_ids))
+            .distinct()
+            .all()
+        }
     for instructor in instructors:
-        face_count = InstructorFaceEncoding.query.filter_by(instructor_id=instructor.id).count()
-        instructor.has_face_images = face_count > 0
+        instructor.has_face_images = instructor.id in face_ids
     form = RegisterForm()
     form.role.default = 'instructor'
     form.process()
@@ -77,18 +95,31 @@ def get_my_students():
     try:
         if current_user.role != 'instructor':
             return (jsonify({'success': False, 'message': 'Unauthorized'}), 403)
-        classes = Class.query.filter_by(instructor_id=current_user.id).all()
-        class_ids = [cls.id for cls in classes]
+        class_ids = [class_id for (class_id,) in db.session.query(Class.id).filter_by(instructor_id=current_user.id).all()]
         if not class_ids:
             return jsonify({'students': []})
-        enrollments = Enrollment.query.filter(Enrollment.class_id.in_(class_ids)).all()
-        student_ids = list(set((enrollment.student_id for enrollment in enrollments)))
+        student_ids = {
+            student_id
+            for (student_id,) in db.session.query(Enrollment.student_id)
+            .filter(Enrollment.class_id.in_(class_ids))
+            .all()
+        }
+        if not student_ids:
+            return jsonify({'students': []})
+
+        students = Student.query.filter(Student.id.in_(student_ids)).all()
+        face_student_ids = {
+            student_id
+            for (student_id,) in db.session.query(FaceEncoding.student_id)
+            .filter(FaceEncoding.student_id.in_(student_ids))
+            .distinct()
+            .all()
+        }
+
         student_list = []
-        for student_id in student_ids:
-            student = Student.query.get(student_id)
-            if student:
-                has_face = FaceEncoding.query.filter_by(student_id=student.id).first() is not None
-                student_list.append({'id': student.id, 'name': f"{student.first_name or ''} {student.last_name or ''}".strip(), 'yearLevel': student.year_level or '', 'phone': '', 'email': '', 'hasFaceImages': has_face})
+        for student in students:
+            has_face = student.id in face_student_ids
+            student_list.append({'id': student.id, 'name': f"{student.first_name or ''} {student.last_name or ''}".strip(), 'yearLevel': student.year_level or '', 'phone': '', 'email': '', 'hasFaceImages': has_face})
         student_list.sort(key=lambda x: x['name'])
         return jsonify({'students': student_list})
     except Exception as e:
@@ -133,18 +164,43 @@ def upload_pictures():
                 os.makedirs(uploads_dir, exist_ok=True)
                 file_path = os.path.join(uploads_dir, filename)
                 file.save(file_path)
+
+                embedding_bytes = extract_embedding_bytes(file_path)
+                if embedding_bytes is None:
+                    errors.append(f'No detectable face found in {file.filename}.')
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                    continue
+
                 relative_image_path = os.path.join('uploads', 'students', sanitized_student_name, filename).replace('\\', '/')
-                face_encoding = FaceEncoding(student_id=student_id, encoding_data=bytes([0] * 128), image_path=relative_image_path, created_at=pst_now_naive())
+                face_encoding = FaceEncoding(
+                    student_id=student_id,
+                    encoding_data=embedding_bytes,
+                    image_path=relative_image_path,
+                    created_at=pst_now_naive()
+                )
                 db.session.add(face_encoding)
+                db.session.flush()
                 uploaded_images.append({'id': face_encoding.id, 'filename': filename, 'path': url_for('static', filename=face_encoding.image_path)})
             except Exception as e:
                 error_msg = f'Error uploading {file.filename}: {str(e)}'
                 errors.append(error_msg)
+                if 'file_path' in locals() and os.path.exists(file_path):
+                    os.remove(file_path)
                 continue
         try:
             if uploaded_images:
                 db.session.commit()
-                return jsonify({'success': True, 'message': f'Successfully uploaded {len(uploaded_images)} image(s).' + (f' Failed to upload {len(errors)} image(s).' if errors else ''), 'images': uploaded_images, 'errors': errors if errors else []})
+                cache_warning = _sync_face_cache_safely()
+                response = {
+                    'success': True,
+                    'message': f'Successfully uploaded {len(uploaded_images)} image(s) with extracted embeddings.' + (f' Failed to upload {len(errors)} image(s).' if errors else ''),
+                    'images': uploaded_images,
+                    'errors': errors if errors else []
+                }
+                if cache_warning:
+                    response['cache_warning'] = cache_warning
+                return jsonify(response)
             else:
                 return (jsonify({'success': False, 'message': 'No images were uploaded successfully.', 'errors': errors}), 400)
         except Exception as e:
@@ -477,12 +533,61 @@ def get_class_attendance_overview():
         else:
             target_date = get_pst_now().date()
         now = get_pst_now()
+        if not classes:
+            return jsonify({'success': True, 'classes': []})
+
+        class_ids = [class_obj.id for class_obj in classes]
+        enrollment_rows = (
+            db.session.query(Enrollment.class_id, Enrollment.student_id)
+            .filter(Enrollment.class_id.in_(class_ids))
+            .all()
+        )
+        enrollment_student_ids_by_class = {class_id: [] for class_id in class_ids}
+        for class_id, student_id in enrollment_rows:
+            enrollment_student_ids_by_class.setdefault(class_id, []).append(student_id)
+
+        session_rows = (
+            ClassSession.query
+            .filter(ClassSession.class_id.in_(class_ids), ClassSession.date == target_date)
+            .order_by(ClassSession.id.asc())
+            .all()
+        )
+        today_session_by_class = {}
+        for session in session_rows:
+            if session.class_id not in today_session_by_class:
+                today_session_by_class[session.class_id] = session
+
+        session_ids = [session.id for session in today_session_by_class.values()]
+        attendance_by_session_student = {}
+        if session_ids:
+            attendance_rows = AttendanceRecord.query.filter(AttendanceRecord.class_session_id.in_(session_ids)).all()
+            for record in attendance_rows:
+                if record.class_session_id not in attendance_by_session_student:
+                    attendance_by_session_student[record.class_session_id] = {}
+                attendance_by_session_student[record.class_session_id][record.student_id] = (
+                    record.status.value.upper() if record.status else 'ABSENT'
+                )
+
+        instructor_attendance_rows = (
+            InstructorAttendance.query
+            .filter(
+                InstructorAttendance.instructor_id == current_user.id,
+                InstructorAttendance.class_id.in_(class_ids),
+                InstructorAttendance.date == target_date,
+            )
+            .all()
+        )
+        instructor_attendance_by_class = {}
+        for row in instructor_attendance_rows:
+            if row.class_id not in instructor_attendance_by_class:
+                instructor_attendance_by_class[row.class_id] = row
+
         class_list = []
         attendance_changes = False
         for class_obj in classes:
-            enrollments = Enrollment.query.filter_by(class_id=class_obj.id).all()
-            enrolled_count = len(enrollments)
-            today_session = ClassSession.query.filter_by(class_id=class_obj.id, date=target_date).first()
+            enrolled_student_ids = enrollment_student_ids_by_class.get(class_obj.id, [])
+            enrolled_count = len(enrolled_student_ids)
+            today_session = today_session_by_class.get(class_obj.id)
             planned_window = resolve_schedule_window(class_obj.schedule or '', target_date=target_date)
             planned_start_datetime = planned_window['start_datetime'] if planned_window else None
             planned_end_datetime = planned_window['end_datetime'] if planned_window else None
@@ -496,7 +601,7 @@ def get_class_attendance_overview():
             session_room = class_obj.room_number
             session_processed = False
             session_id = today_session.id if today_session else None
-            attendance_record = InstructorAttendance.query.filter_by(instructor_id=current_user.id, class_id=class_obj.id, date=target_date).first()
+            attendance_record = instructor_attendance_by_class.get(class_obj.id)
             if today_session:
                 session_room = today_session.session_room_number or class_obj.room_number
                 session_processed = bool(today_session.is_attendance_processed)
@@ -532,10 +637,8 @@ def get_class_attendance_overview():
                     if record_updated:
                         attendance_changes = True
             if today_session:
-                today_attendance_records = AttendanceRecord.query.filter_by(class_session_id=today_session.id).all()
-                today_attendance = {record.student_id: record.status.value.upper() if record.status else 'ABSENT' for record in today_attendance_records}
-                for enrollment in enrollments:
-                    student_id = enrollment.student_id
+                today_attendance = attendance_by_session_student.get(today_session.id, {})
+                for student_id in enrolled_student_ids:
                     status = today_attendance.get(student_id, 'ABSENT')
                     if status == 'PRESENT':
                         present_count += 1
@@ -573,11 +676,27 @@ def get_class_students(class_id):
                 target_date = get_pst_now().date()
         else:
             target_date = get_pst_now().date()
+        student_ids = [enrollment.student_id for enrollment in enrollments]
+        student_map = {}
+        if student_ids:
+            students = Student.query.filter(Student.id.in_(student_ids)).all()
+            student_map = {student.id: student for student in students}
+
+        face_student_ids = set()
+        if student_ids:
+            face_student_ids = {
+                student_id
+                for (student_id,) in db.session.query(FaceEncoding.student_id)
+                .filter(FaceEncoding.student_id.in_(student_ids))
+                .distinct()
+                .all()
+            }
+
         student_list = []
         for enrollment in enrollments:
-            student = Student.query.get(enrollment.student_id)
+            student = student_map.get(enrollment.student_id)
             if student:
-                has_face = FaceEncoding.query.filter_by(student_id=student.id).first() is not None
+                has_face = student.id in face_student_ids
                 status = 'UNKNOWN'
                 student_list.append({'id': student.id, 'name': f"{student.first_name or ''} {student.last_name or ''}".strip(), 'yearLevel': student.year_level or '', 'phone': '', 'email': '', 'status': status, 'enrollmentId': enrollment.id, 'classId': class_id, 'className': class_obj.description or '', 'hasFaceImages': has_face})
         response = {'students': student_list, 'counts': {'present': 0, 'absent': 0, 'late': 0}}
@@ -757,10 +876,34 @@ def upload_student_image(student_id):
         if not image_path:
             return (jsonify({'success': False, 'message': 'Error saving file'}), 500)
         try:
-            face_encoding = FaceEncoding(student_id=student_id, encoding=bytes([0] * 128), image_path=image_path, created_at=pst_now_naive())
+            full_file_path = os.path.join(current_app.static_folder, image_path)
+            embedding_bytes = extract_embedding_bytes(full_file_path)
+            if embedding_bytes is None:
+                if os.path.exists(full_file_path):
+                    os.remove(full_file_path)
+                return (jsonify({'success': False, 'message': 'No detectable face found in the uploaded image.'}), 400)
+
+            face_encoding = FaceEncoding(
+                student_id=student_id,
+                encoding_data=embedding_bytes,
+                image_path=image_path,
+                created_at=pst_now_naive()
+            )
             db.session.add(face_encoding)
             db.session.commit()
-            return jsonify({'success': True, 'message': 'Image uploaded successfully. Please process this image on the Raspberry Pi device.', 'image': {'id': face_encoding.id, 'path': url_for('static', filename=image_path), 'created_at': face_encoding.created_at.strftime('%Y-%m-%d %H:%M:%S')}})
+            cache_warning = _sync_face_cache_safely()
+            response = {
+                'success': True,
+                'message': 'Image uploaded and embedding extracted successfully.',
+                'image': {
+                    'id': face_encoding.id,
+                    'path': url_for('static', filename=image_path),
+                    'created_at': face_encoding.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                }
+            }
+            if cache_warning:
+                response['cache_warning'] = cache_warning
+            return jsonify(response)
         except Exception as db_error:
             if image_path:
                 file_path = os.path.join(current_app.static_folder, image_path)
@@ -886,8 +1029,21 @@ def upload_instructor_images(instructor_id):
                 os.makedirs(uploads_dir, exist_ok=True)
                 file_path = os.path.join(uploads_dir, filename)
                 file.save(file_path)
+
+                embedding_bytes = extract_embedding_bytes(file_path)
+                if embedding_bytes is None:
+                    errors.append(f'No detectable face found in {file.filename}.')
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                    continue
+
                 relative_image_path = os.path.join('uploads', 'instructors', sanitized_instructor_name, filename).replace('\\', '/')
-                face_encoding = InstructorFaceEncoding(instructor_id=instructor_id, encoding=bytes([0] * 128), image_path=relative_image_path, created_at=pst_now_naive())
+                face_encoding = InstructorFaceEncoding(
+                    instructor_id=instructor_id,
+                    encoding=embedding_bytes,
+                    image_path=relative_image_path,
+                    created_at=pst_now_naive()
+                )
                 db.session.add(face_encoding)
                 db.session.flush()
                 uploaded_files.append({'id': face_encoding.id, 'filename': filename, 'path': url_for('static', filename=relative_image_path)})
@@ -899,7 +1055,16 @@ def upload_instructor_images(instructor_id):
         if uploaded_files:
             try:
                 db.session.commit()
-                return jsonify({'success': True, 'message': f'Successfully uploaded {len(uploaded_files)} images', 'images': uploaded_files, 'errors': errors if errors else None})
+                cache_warning = _sync_face_cache_safely()
+                response = {
+                    'success': True,
+                    'message': f'Successfully uploaded {len(uploaded_files)} images with extracted embeddings',
+                    'images': uploaded_files,
+                    'errors': errors if errors else None
+                }
+                if cache_warning:
+                    response['cache_warning'] = cache_warning
+                return jsonify(response)
             except Exception as db_error:
                 db.session.rollback()
                 for file_info in uploaded_files:
@@ -944,7 +1109,11 @@ def delete_instructor_image(image_id):
         db.session.delete(face_encoding)
         db.session.commit()
         remaining_images = InstructorFaceEncoding.query.filter_by(instructor_id=face_encoding.instructor_id).count()
-        return jsonify({'success': True, 'message': 'Image deleted successfully', 'remaining_images': remaining_images})
+        cache_warning = _sync_face_cache_safely()
+        response = {'success': True, 'message': 'Image deleted successfully', 'remaining_images': remaining_images}
+        if cache_warning:
+            response['cache_warning'] = cache_warning
+        return jsonify(response)
     except Exception as e:
         db.session.rollback()
         return (jsonify({'success': False, 'message': str(e)}), 500)
@@ -1053,7 +1222,11 @@ def delete_student_image(image_id):
             if os.path.exists(file_path):
                 os.remove(file_path)
         remaining_images = FaceEncoding.query.filter_by(student_id=face_encoding.student_id).count()
-        return jsonify({'success': True, 'message': 'Image deleted successfully', 'remaining_images': remaining_images})
+        cache_warning = _sync_face_cache_safely()
+        response = {'success': True, 'message': 'Image deleted successfully', 'remaining_images': remaining_images}
+        if cache_warning:
+            response['cache_warning'] = cache_warning
+        return jsonify(response)
     except Exception as e:
         db.session.rollback()
         return (jsonify({'success': False, 'message': str(e)}), 500)

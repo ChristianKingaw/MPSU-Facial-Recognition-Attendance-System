@@ -1,14 +1,18 @@
 {
-  "ended_classes_day": "2026-02-19",
+  "ended_classes_day": "2026-03-08",
   "ended_classes": [
-    4
+    6,
+    7,
+    8
   ],
   "ended_class_expirations": {
-    "4": "2026-02-20T02:59:06.520093"
+    "6": "2026-03-09T06:57:01.980215",
+    "7": "2026-03-09T08:14:57.992967",
+    "8": "2026-03-09T09:39:51.165447"
   },
   "ongoing_classes": [],
   "class_rooms": {},
   "class_session_ids": {},
   "class_instructor_assignments": {},
-  "saved_at": "2026-02-19T14:59:06.520093"
+  "saved_at": "2026-03-08T21:39:51.165447"
 }

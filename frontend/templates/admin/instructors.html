@@ -1324,7 +1324,20 @@
             console.log('Server response:', result);
 
             if (result.success) {
-                window.showSuccessNotification(`${window.capturedPhotos.length} photos uploaded successfully!`);
+                const uploadedCount = Array.isArray(result.images) ? result.images.length : 0;
+                const failedCount = Array.isArray(result.errors) ? result.errors.length : 0;
+
+                if (uploadedCount > 0 && failedCount === 0) {
+                    window.showSuccessNotification(`${uploadedCount} photo${uploadedCount === 1 ? '' : 's'} uploaded successfully!`);
+                } else if (uploadedCount > 0) {
+                    window.showWarningNotification(`${uploadedCount} uploaded, ${failedCount} failed. Please retry failed captures.`);
+                } else {
+                    throw new Error(result.message || 'No photos were uploaded successfully.');
+                }
+
+                if (result.cache_warning) {
+                    window.showWarningNotification(result.cache_warning);
+                }
 
                 // Update face status in the table
                 updateInstructorFaceStatus(instructorId, true);

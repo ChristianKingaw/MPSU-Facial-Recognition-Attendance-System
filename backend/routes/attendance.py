@@ -29,6 +29,60 @@ def _normalize_status(raw_status):
     }
     return mapping.get(text)
 
+
+def _build_class_attendance_summary(classes, today):
+    if not classes:
+        return []
+
+    class_ids = [cls.id for cls in classes]
+    enrollment_counts = {}
+    enrollment_rows = (
+        db.session.query(Enrollment.class_id, func.count(Enrollment.id))
+        .filter(Enrollment.class_id.in_(class_ids))
+        .group_by(Enrollment.class_id)
+        .all()
+    )
+    for class_id, count in enrollment_rows:
+        enrollment_counts[class_id] = int(count)
+
+    day_start = datetime.datetime.combine(today, datetime.time.min)
+    next_day_start = day_start + timedelta(days=1)
+    present_counts = {}
+    present_rows = (
+        db.session.query(AttendanceRecord.class_id, func.count(AttendanceRecord.id))
+        .filter(
+            AttendanceRecord.class_id.in_(class_ids),
+            AttendanceRecord.date >= day_start,
+            AttendanceRecord.date < next_day_start,
+            AttendanceRecord.status == AttendanceStatus.PRESENT,
+        )
+        .group_by(AttendanceRecord.class_id)
+        .all()
+    )
+    for class_id, count in present_rows:
+        present_counts[class_id] = int(count)
+
+    class_list = []
+    for cls in classes:
+        class_list.append({
+            'id': cls.id,
+            'ClassID': cls.id,
+            'classCode': cls.class_code,
+            'ClassCode': cls.class_code,
+            'className': cls.class_name or cls.description,
+            'ClassName': cls.class_name or cls.description,
+            'description': cls.description,
+            'schedule': cls.schedule,
+            'roomNumber': cls.room_number,
+            'RoomNumber': cls.room_number,
+            'instructorId': cls.instructor_id,
+            'InstructorID': cls.instructor_id,
+            'enrolledCount': enrollment_counts.get(cls.id, 0),
+            'presentCount': present_counts.get(cls.id, 0),
+            'date': today.strftime('%B %d %Y')
+        })
+    return class_list
+
 @attendance_bp.route('/api/classes', methods=['GET'])
 @login_required
 def get_classes_with_attendance():
@@ -37,12 +91,7 @@ def get_classes_with_attendance():
     else:
         classes = Class.query.all()
     today = date.today()
-    class_list = []
-    for cls in classes:
-        enrolled_count = Enrollment.query.filter_by(class_id=cls.id).count()
-        present_count = AttendanceRecord.query.filter(AttendanceRecord.class_id == cls.id, func.date(AttendanceRecord.date) == today, AttendanceRecord.status == AttendanceStatus.PRESENT).count()
-        class_list.append({'id': cls.id, 'ClassID': cls.id, 'classCode': cls.class_code, 'ClassCode': cls.class_code, 'className': cls.class_name or cls.description, 'ClassName': cls.class_name or cls.description, 'description': cls.description, 'schedule': cls.schedule, 'roomNumber': cls.room_number, 'RoomNumber': cls.room_number, 'instructorId': cls.instructor_id, 'InstructorID': cls.instructor_id, 'enrolledCount': enrolled_count, 'presentCount': present_count, 'date': today.strftime('%B %d %Y')})
-    return jsonify(class_list)
+    return jsonify(_build_class_attendance_summary(classes, today))
 
 @attendance_bp.route('/api/my-classes-today', methods=['GET'])
 @login_required
@@ -52,12 +101,7 @@ def get_my_classes_today():
         return jsonify([])
     classes = Class.query.filter_by(instructor_id=current_user.id).all()
     today = date.today()
-    class_list = []
-    for cls in classes:
-        enrolled_count = Enrollment.query.filter_by(class_id=cls.id).count()
-        present_count = AttendanceRecord.query.filter(AttendanceRecord.class_id == cls.id, func.date(AttendanceRecord.date) == today, AttendanceRecord.status == AttendanceStatus.PRESENT).count()
-        class_list.append({'id': cls.id, 'ClassID': cls.id, 'classCode': cls.class_code, 'ClassCode': cls.class_code, 'className': cls.class_name or cls.description, 'ClassName': cls.class_name or cls.description, 'description': cls.description, 'schedule': cls.schedule, 'roomNumber': cls.room_number, 'RoomNumber': cls.room_number, 'enrolledCount': enrolled_count, 'presentCount': present_count, 'date': today.strftime('%B %d %Y')})
-    return jsonify(class_list)
+    return jsonify(_build_class_attendance_summary(classes, today))
 
 @attendance_bp.route('/api/class/<int:class_id>/attendance', methods=['GET'])
 @login_required
@@ -76,16 +120,22 @@ def get_class_attendance(class_id):
             except ValueError:
                 attendance_date = date.today()
             enrollments = Enrollment.query.filter_by(class_id=class_id).all()
+            student_ids = [enrollment.student_id for enrollment in enrollments]
+            students = Student.query.filter(Student.id.in_(student_ids)).all() if student_ids else []
+            student_map = {student.id: student for student in students}
+
+            class_session = ClassSession.query.filter_by(class_id=class_id, date=attendance_date).first()
+            attendance_map = {}
+            if class_session:
+                attendance_rows = AttendanceRecord.query.filter_by(class_session_id=class_session.id).all()
+                attendance_map = {record.student_id: record for record in attendance_rows}
+
             attendance_list = []
             for enrollment in enrollments:
-                student = Student.query.get(enrollment.student_id)
+                student = student_map.get(enrollment.student_id)
                 if not student:
                     continue
-                class_session = ClassSession.query.filter_by(class_id=class_id, date=attendance_date).first()
-                if class_session:
-                    attendance = AttendanceRecord.query.filter_by(class_session_id=class_session.id, student_id=student.id).first()
-                else:
-                    attendance = None
+                attendance = attendance_map.get(student.id)
                 if attendance:
                     status = attendance.status.value if attendance.status else 'Absent'
                     time_in = attendance.time_in.strftime('%H:%M') if attendance.time_in else None
@@ -99,11 +149,13 @@ def get_class_attendance(class_id):
         else:
             class_sessions = ClassSession.query.filter_by(class_id=class_id).order_by(ClassSession.date).all()
             enrollments = Enrollment.query.filter_by(class_id=class_id).all()
-            students = [Student.query.get(e.student_id) for e in enrollments if Student.query.get(e.student_id)]
+            student_ids = [enrollment.student_id for enrollment in enrollments]
+            students = Student.query.filter(Student.id.in_(student_ids)).all() if student_ids else []
             session_ids = [cs.id for cs in class_sessions]
-            attendance_records = AttendanceRecord.query.filter(AttendanceRecord.class_session_id.in_(session_ids)).all()
+            attendance_records = AttendanceRecord.query.filter(AttendanceRecord.class_session_id.in_(session_ids)).all() if session_ids else []
             attendance_by_date = {}
             dates = set()
+            session_date_map = {cs.id: cs.date.strftime('%Y-%m-%d') for cs in class_sessions}
             for cs in class_sessions:
                 date_str = cs.date.strftime('%Y-%m-%d')
                 dates.add(date_str)
@@ -111,9 +163,8 @@ def get_class_attendance(class_id):
                 for student in students:
                     attendance_by_date[date_str][student.id] = 'A'
             for record in attendance_records:
-                session = next((cs for cs in class_sessions if cs.id == record.class_session_id), None)
-                if session:
-                    date_str = session.date.strftime('%Y-%m-%d')
+                date_str = session_date_map.get(record.class_session_id)
+                if date_str:
                     status = record.status.value if record.status else 'Absent'
                     attendance_by_date[date_str][record.student_id] = status[0]
             dates = sorted(list(dates))

@@ -1,8 +1,10 @@
-from flask import Blueprint, render_template, redirect, url_for, request, jsonify, flash, current_app
+from flask import Blueprint, render_template, redirect, url_for, request, jsonify, flash, current_app, send_file
 from flask_login import login_required, current_user
 from datetime import datetime, date, timedelta
 from utils.timezone import get_pst_now, pst_now_naive
 import calendar
+from collections import defaultdict
+from io import BytesIO
 from sqlalchemy.orm import joinedload
 from extensions import db
 from decorators import admin_required
@@ -282,6 +284,292 @@ def export_attendance():
         return (jsonify({'success': False, 'message': 'Invalid date format. Use YYYY-MM-DD'}), 400)
     except Exception as e:
         return (jsonify({'success': False, 'message': str(e)}), 500)
+
+def _normalize_student_status_label(raw_status):
+    if raw_status is None:
+        return 'Absent'
+    status_value = raw_status.value if hasattr(raw_status, 'value') else str(raw_status)
+    normalized = status_value.strip().lower()
+    if normalized == 'present':
+        return 'Present'
+    if normalized == 'late':
+        return 'Late'
+    if normalized == 'absent':
+        return 'Absent'
+    return normalized.title() if normalized else 'Absent'
+
+def _normalize_instructor_status_label(raw_status):
+    if raw_status is None:
+        return 'Absent'
+    normalized = str(raw_status).strip().lower()
+    if normalized == 'present':
+        return 'Present'
+    if normalized == 'late':
+        return 'Late'
+    if normalized == 'absent':
+        return 'Absent'
+    if normalized in {'on leave', 'on_leave'}:
+        return 'On Leave'
+    return normalized.title() if normalized else 'Absent'
+
+def generate_monthly_attendance_summary_pdf(year, month):
+    """Generate monthly attendance summary PDF for students and instructors."""
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.lib import colors
+
+    period_start = date(year, month, 1)
+    if month == 12:
+        period_end_exclusive = date(year + 1, 1, 1)
+    else:
+        period_end_exclusive = date(year, month + 1, 1)
+    period_end = period_end_exclusive - timedelta(days=1)
+
+    student_records = (
+        AttendanceRecord.query
+        .options(joinedload(AttendanceRecord.class_ref), joinedload(AttendanceRecord.student))
+        .filter(
+            AttendanceRecord.date >= datetime.combine(period_start, datetime.min.time()),
+            AttendanceRecord.date < datetime.combine(period_end_exclusive, datetime.min.time())
+        )
+        .all()
+    )
+
+    instructor_records = (
+        InstructorAttendance.query
+        .options(joinedload(InstructorAttendance.class_ref), joinedload(InstructorAttendance.instructor))
+        .filter(
+            InstructorAttendance.date >= period_start,
+            InstructorAttendance.date < period_end_exclusive
+        )
+        .all()
+    )
+
+    student_totals = {'Present': 0, 'Late': 0, 'Absent': 0}
+    instructor_totals = {'Present': 0, 'Late': 0, 'Absent': 0, 'On Leave': 0}
+    student_by_class = defaultdict(lambda: {'records': 0, 'Present': 0, 'Late': 0, 'Absent': 0})
+    student_by_day = defaultdict(lambda: {'records': 0, 'Present': 0, 'Late': 0, 'Absent': 0})
+    instructor_by_instructor = defaultdict(lambda: {'records': 0, 'Present': 0, 'Late': 0, 'Absent': 0, 'On Leave': 0})
+
+    unique_student_ids = set()
+    unique_class_keys = set()
+    unique_instructor_ids = set()
+
+    for record in student_records:
+        status_label = _normalize_student_status_label(record.status)
+        if status_label not in student_totals:
+            status_label = 'Absent'
+        student_totals[status_label] += 1
+
+        class_key = 'Unassigned'
+        if record.class_ref and record.class_ref.class_code:
+            class_key = record.class_ref.class_code
+        elif record.class_id:
+            class_key = f'Class #{record.class_id}'
+        unique_class_keys.add(class_key)
+
+        student_by_class[class_key]['records'] += 1
+        student_by_class[class_key][status_label] += 1
+
+        record_date = None
+        if isinstance(record.date, datetime):
+            record_date = record.date.date()
+        elif isinstance(record.date, date):
+            record_date = record.date
+        if record_date:
+            student_by_day[record_date]['records'] += 1
+            student_by_day[record_date][status_label] += 1
+
+        if record.student_id:
+            unique_student_ids.add(record.student_id)
+
+    for record in instructor_records:
+        status_label = _normalize_instructor_status_label(record.status)
+        if status_label not in instructor_totals:
+            status_label = 'Absent'
+        instructor_totals[status_label] += 1
+
+        instructor_key = f'Instructor #{record.instructor_id}'
+        if record.instructor:
+            instructor_key = f'{record.instructor.last_name}, {record.instructor.first_name}'
+        instructor_by_instructor[instructor_key]['records'] += 1
+        instructor_by_instructor[instructor_key][status_label] += 1
+
+        if record.instructor_id:
+            unique_instructor_ids.add(record.instructor_id)
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'MonthlySummaryTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        spaceAfter=12
+    )
+
+    def build_table(data, col_widths=None):
+        table = Table(data, colWidths=col_widths, repeatRows=1)
+        table.setStyle(
+            TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2F4F4F')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F5F5')]),
+                ('FONTSIZE', (0, 1), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ])
+        )
+        return table
+
+    story = []
+    story.append(Paragraph('Monthly Attendance Summary', title_style))
+    story.append(
+        Paragraph(
+            f'Coverage: {calendar.month_name[month]} {year} ({period_start.isoformat()} to {period_end.isoformat()})',
+            styles['Normal']
+        )
+    )
+    story.append(Paragraph(f'Generated on: {get_pst_now().strftime("%Y-%m-%d %H:%M:%S")}', styles['Normal']))
+    story.append(Spacer(1, 12))
+
+    overview_rows = [
+        ['Metric', 'Value'],
+        ['Student Attendance Records', str(len(student_records))],
+        ['Instructor Attendance Records', str(len(instructor_records))],
+        ['Unique Students', str(len(unique_student_ids))],
+        ['Unique Instructors', str(len(unique_instructor_ids))],
+        ['Classes with Attendance Records', str(len(unique_class_keys))],
+    ]
+    story.append(Paragraph('Overview', styles['Heading2']))
+    story.append(build_table(overview_rows, [290, 200]))
+    story.append(Spacer(1, 12))
+
+    student_summary_rows = [
+        ['Status', 'Count'],
+        ['Present', str(student_totals['Present'])],
+        ['Late', str(student_totals['Late'])],
+        ['Absent', str(student_totals['Absent'])],
+    ]
+    story.append(Paragraph('Student Attendance Status Summary', styles['Heading2']))
+    story.append(build_table(student_summary_rows, [290, 200]))
+    story.append(Spacer(1, 12))
+
+    story.append(Paragraph('Student Attendance by Class', styles['Heading2']))
+    if student_by_class:
+        student_class_rows = [['Class', 'Records', 'Present', 'Late', 'Absent', 'Present Rate']]
+        for class_key in sorted(student_by_class.keys()):
+            values = student_by_class[class_key]
+            present_rate = (values['Present'] / values['records'] * 100) if values['records'] else 0
+            student_class_rows.append([
+                class_key,
+                str(values['records']),
+                str(values['Present']),
+                str(values['Late']),
+                str(values['Absent']),
+                f'{present_rate:.1f}%',
+            ])
+        story.append(build_table(student_class_rows, [140, 72, 72, 72, 72, 72]))
+    else:
+        story.append(Paragraph('No student attendance records found for this month.', styles['Italic']))
+    story.append(Spacer(1, 12))
+
+    story.append(Paragraph('Daily Student Attendance Breakdown', styles['Heading2']))
+    if student_by_day:
+        daily_rows = [['Date', 'Records', 'Present', 'Late', 'Absent']]
+        for record_day in sorted(student_by_day.keys()):
+            values = student_by_day[record_day]
+            daily_rows.append([
+                record_day.isoformat(),
+                str(values['records']),
+                str(values['Present']),
+                str(values['Late']),
+                str(values['Absent']),
+            ])
+        story.append(build_table(daily_rows, [160, 94, 94, 94, 94]))
+    else:
+        story.append(Paragraph('No student attendance records found for this month.', styles['Italic']))
+    story.append(Spacer(1, 12))
+
+    instructor_summary_rows = [
+        ['Status', 'Count'],
+        ['Present', str(instructor_totals['Present'])],
+        ['Late', str(instructor_totals['Late'])],
+        ['Absent', str(instructor_totals['Absent'])],
+        ['On Leave', str(instructor_totals['On Leave'])],
+    ]
+    story.append(Paragraph('Instructor Attendance Status Summary', styles['Heading2']))
+    story.append(build_table(instructor_summary_rows, [290, 200]))
+    story.append(Spacer(1, 12))
+
+    story.append(Paragraph('Instructor Attendance by Instructor', styles['Heading2']))
+    if instructor_by_instructor:
+        instructor_rows = [['Instructor', 'Records', 'Present', 'Late', 'Absent', 'On Leave']]
+        for instructor_key in sorted(instructor_by_instructor.keys()):
+            values = instructor_by_instructor[instructor_key]
+            instructor_rows.append([
+                instructor_key,
+                str(values['records']),
+                str(values['Present']),
+                str(values['Late']),
+                str(values['Absent']),
+                str(values['On Leave']),
+            ])
+        story.append(build_table(instructor_rows, [170, 67, 67, 67, 67, 67]))
+    else:
+        story.append(Paragraph('No instructor attendance records found for this month.', styles['Italic']))
+
+    doc.build(story)
+    pdf_data = buffer.getvalue()
+    buffer.close()
+    return pdf_data
+
+@admin_bp.route('/api/attendance/monthly-summary', methods=['GET'])
+@login_required
+@admin_required
+def monthly_attendance_summary():
+    """Preview or download monthly attendance summary PDF."""
+    now = get_pst_now()
+    year_raw = request.args.get('year')
+    month_raw = request.args.get('month')
+
+    try:
+        year = int(year_raw) if year_raw else now.year
+        month = int(month_raw) if month_raw else now.month
+    except ValueError:
+        return (jsonify({'success': False, 'message': 'Invalid year or month'}), 400)
+
+    if year < 2020 or year > 2100:
+        return (jsonify({'success': False, 'message': 'Year must be between 2020 and 2100'}), 400)
+    if month < 1 or month > 12:
+        return (jsonify({'success': False, 'message': 'Month must be between 1 and 12'}), 400)
+
+    try:
+        pdf_data = generate_monthly_attendance_summary_pdf(year, month)
+        filename = f'monthly_attendance_summary_{year}_{month:02d}.pdf'
+        download_requested = request.args.get('download', '0').lower() in {'1', 'true', 'yes'}
+
+        pdf_buffer = BytesIO(pdf_data)
+        pdf_buffer.seek(0)
+        return send_file(
+            pdf_buffer,
+            mimetype='application/pdf',
+            as_attachment=download_requested,
+            download_name=filename
+        )
+    except Exception as exc:
+        return (jsonify({'success': False, 'message': f'Failed to generate monthly summary: {str(exc)}'}), 500)
 
 @admin_bp.route('/api/instructors/<int:instructor_id>/attendance', methods=['GET'])
 @login_required
@@ -841,7 +1129,6 @@ def reset_attendance_and_classes():
             reset_timestamp = SystemSettings(key='last_reset_timestamp', value=str(get_pst_now().timestamp()))
             db.session.add(reset_timestamp)
         db.session.commit()
-        from flask import send_file
         zip_buffer = BytesIO(zip_data)
         zip_buffer.seek(0)
         return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name='attendance_archive.zip')
