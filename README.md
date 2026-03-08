@@ -165,10 +165,97 @@ Ending a class in FRCAS is done through the instructor console. The instructor o
 
 2. Download CMake from its official website at https://cmake.org/download/ and run the installer. Choose the option that adds CMake to your system PATH. When everything is installed open Command Prompt and type cmake --version to check CMake and cl to check the C++ compiler. If both work your system is ready to build packages that need CMake and C++ tools.
 3. Installing Python 3.11.0. Go to python.org/downloads/release/python-3110. Pick the file for your computer type. Download the exe file. Run it. Check "Add python.exe to PATH". Click Install Now. Open Command Prompt. Type python --version to check.
-4. To install the system, first extract the ZIP folder. After that, open a terminal and create a virtual environment using python -m venv venv. Once the virtual environment is created, activate it and install all required packages like the flask using the code pip install -r requirements.txt. When the installation is complete, you can start the system by running the start_server.bat file.
+4. To install the server, first extract the ZIP folder. Open a terminal and create a virtual environment:
+
+   - Create the venv:
+
+     ```powershell
+     python -m venv venv
+     ```
+
+   - Activate the venv (PowerShell):
+
+     ```powershell
+     .\venv\Scripts\Activate.ps1
+     ```
+
+     Or (Command Prompt):
+
+     ```cmd
+     .\venv\Scripts\activate.bat
+     ```
+
+   - Install server dependencies (use the backend requirements file):
+
+     ```powershell
+     pip install -r backend/requirements.txt
+     ```
+
+   - Start the backend (from the project root):
+
+     ```powershell
+     python start_backend.py
+     ```
+
+### Localhost access (recommended)
+After starting the backend, open:
+
+```text
+http://127.0.0.1:5000
+```
+
+The launcher reads host/port from `.env`:
+
+- `FRCAS_HOST` (default: `127.0.0.1`)
+- `FRCAS_PORT` (default: `5000`)
+- `FRCAS_USE_HTTPS` (`true` to use cert/key if available)
+
+Example `.env` values for local-only access:
+
+```env
+FRCAS_HOST=127.0.0.1
+FRCAS_PORT=5000
+FRCAS_LOCALHOST_ONLY=true
+```
+
+### Start automatically when Windows boots (Task Scheduler)
+Use Task Scheduler so the backend starts whenever the PC turns on.
+
+1. Open **Task Scheduler** and click **Create Task**.
+2. In **General**:
+   - Set a name (example: `FRCAS Backend`).
+   - Check **Run whether user is logged on or not**.
+   - Check **Run with highest privileges**.
+3. In **Triggers**:
+   - Click **New...**
+   - Set **Begin the task** to **At startup**.
+4. In **Actions**:
+   - Click **New...**
+   - **Program/script**:
+     `C:\Users\Christian\Desktop\Capstone\server\venv\Scripts\python.exe`
+   - **Add arguments (optional)**:
+     `C:\Users\Christian\Desktop\Capstone\server\start_backend.py`
+   - **Start in (optional)**:
+     `C:\Users\Christian\Desktop\Capstone\server`
+5. Click **OK** to save, then right-click the task and click **Run** to test.
+
+Important:
+
+- Make sure PostgreSQL service is set to start automatically, or the backend will fail to connect to the database during boot.
+- If you want other devices on your LAN to access the server, set `FRCAS_HOST=0.0.0.0` and update `FRCAS_CORS_ALLOWED_ORIGINS` accordingly.
 
 ### Installing the Client or the facial recognition 
-For the facial recognition system, start by extracting the ZIP folder. Next, open a terminal and create a virtual environment using python -m venv venv. After the virtual environment is created, activate it and install all required packages with pip install -r requirements.txt. Once everything is installed, you can launch the system by running the start_client.bat file.
+For the facial recognition client, extract the ZIP, create and activate a virtual environment as above, then install client dependencies:
+
+```powershell
+pip install -r client/requirements.txt
+```
+
+Start the client from the `client` folder:
+
+```powershell
+py client.py
+```
 
 ### Installing the Database
 1. PostgreSQL 13.21 is installed by first downloading the official installer for Windows from the PostgreSQL website. After opening the installer click Next and keep the default installation folder. Select the PostgreSQL Server pgAdmin 4 and Command Line Tools then continue using the default data directory. Set a password for the postgres user and keep the default port 5432. Choose the default locale and proceed with the installation. Once finished open pgAdmin 4 and connect to PostgreSQL 13 using the password you created to confirm that the installation was successful.
@@ -183,14 +270,13 @@ flask db upgrade
 
 ### UPDATE:
 -for migration steps:
-On the first migration attempt we (after your venv activation) set the Flask app target and ran the upgrade:
+On the first migration attempt (after activating the venv) set the `FLASK_APP` environment variable and run the upgrade from the project root. Example (PowerShell):
 
-<strong>$env:FLASK_APP="backend.app"
-flask db upgrade -d backend/migrations</strong>
+```powershell
+$env:FLASK_APP = "backend.app:create_app"
+flask db upgrade -d backend/migrations
+flask db current -d backend/migrations
+```
 
-That run hit the term_enum duplicate-type error. After updating the migration file to guard enum creation we reran:
-<strong>flask db upgrade -d backend/migrations
-flask db current -d backend/migrations</strong>
-
-Those were the only commands involved in the initial migration sequence.
+If you encounter an enum/duplicate-type error during migrations, add guards to the migration file that create enums (or drop/recreate the enum safely) and re-run the upgrade.
 
